@@ -1,0 +1,47 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh; /* Ensure it takes full viewport height */
+}
+
+.project-selection-container {
+  background-color: #2a2a2a;
+  padding: 3rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.project-selection-container h1 {
+  color: #4CAF50; /* A nice green */
+  margin-bottom: 1rem;
+}
+
+.project-selection-container p {
+  color: #ccc;
+  margin-bottom: 2rem;
+}
+
+.button-group button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 15px 30px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  margin: 0 10px;
+  transition: background-color 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: #45a049;
+}

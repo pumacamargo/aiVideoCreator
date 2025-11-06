@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Python virtual environment
+venv/
+
+# User-generated projects
+# According to the plan, these are portable and managed by the user.
+projects/
+
+# Build output
+dist/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# IDE configuration
+.vscode/
+.idea/
