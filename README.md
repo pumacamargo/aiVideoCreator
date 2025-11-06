@@ -1,78 +1,65 @@
 # aiVideoCreator
 
-Una aplicación web local para la creación de videos asistida por IA, diseñada para simplificar el proceso de producción de video desde una idea hasta clips listos para editar. Utiliza una metáfora de pipeline de producción cinematográfica y se integra con un servidor remoto `n8n` para tareas intensivas de IA.
+A local web application for AI-assisted video creation, designed to streamline the video production pipeline from a simple idea to a collection of clips ready for final editing. It uses a film production pipeline metaphor and integrates with a remote `n8n` server to handle AI-intensive tasks.
 
-## Características
+## Features
 
-*   **Gestión de Proyectos:** Crea, guarda y carga proyectos de video localmente.
-*   **Interfaz Intuitiva:** Frontend React con una experiencia de usuario fluida.
-*   **Backend Robusto:** Servidor Node.js para coordinación local y gestión de archivos.
-*   **Integración con IA:** Se conecta a un servidor `n8n` remoto para orquestar servicios de IA (generación de imágenes, video, etc.).
-*   **Gestión de Activos:** Almacena todos los activos generados (imágenes, videos) de forma organizada y portátil.
+*   **Project Management:** Create, save, and load video projects locally.
+*   **Intuitive UI:** A smooth user experience built with React.
+*   **Robust Backend:** A Node.js server for local coordination and file management.
+*   **AI Integration:** Connects to a remote `n8n` server to orchestrate various AI services (image generation, video, etc.).
+*   **Asset Management:** All generated assets (images, videos) are stored in an organized and portable manner.
 
-## Arquitectura
+## Architecture
 
-La aplicación consta de tres componentes principales:
+The application consists of three main components:
 
-1.  **Frontend (React):** La interfaz de usuario, construida con React y Vite.
-2.  **Backend (Node.js/Express):** Un servidor local que actúa como coordinador. Sirve la aplicación React, gestiona las operaciones del sistema de archivos (guardar/cargar proyectos, activos) y se comunica con el servidor `n8n` remoto a través de WebSockets.
-3.  **Servidor n8n Remoto (VPS):** El motor creativo. Orquesta las llamadas a diversas APIs de IA y gestiona las credenciales de los servicios de IA.
+1.  **Frontend (React):** The user interface, built with React and Vite.
+2.  **Backend (Node.js/Express):** A local server that acts as a coordinator. It serves the React application, handles file system operations (saving/loading projects and assets), and communicates with the remote `n8n` server via WebSockets.
+3.  **Remote n8n Server (VPS):** The creative engine. This server orchestrates calls to various AI APIs and manages the necessary credentials.
 
-## Prerrequisitos
+## Prerequisites
 
-Antes de ejecutar la aplicación, asegúrate de tener instalado lo siguiente:
+Before you begin, ensure you have the following installed:
 
-*   **Node.js y npm:** Puedes descargarlos desde [nodejs.org](https://nodejs.org/).
-*   **Servidor n8n Remoto:** Esta aplicación requiere una instancia de `n8n` ejecutándose en un servidor remoto (VPS) configurada para manejar las tareas de IA. El backend local se conectará a este servidor `n8n`.
+*   **Node.js and npm:** You can download them from [nodejs.org](https://nodejs.org/).
+*   **Remote n8n Server:** This application requires an `n8n` instance running on a remote server (VPS) that has been configured to handle the AI tasks. The local backend will connect to this `n8n` server.
 
-## Instalación
+## Installation
 
-Sigue estos pasos para configurar el proyecto localmente:
-
-1.  **Clonar el repositorio:**
+1.  **Clone the repository:**
     ```bash
     git clone https://github.com/pumacamargo/aiVideoCreator.git
     cd aiVideoCreator
     ```
-2.  **Instalar dependencias del Backend:**
+
+2.  **Install Backend Dependencies:**
     ```bash
     cd backend
     npm install
     cd ..
     ```
-3.  **Instalar dependencias del Frontend:**
+
+3.  **Install Frontend Dependencies:**
     ```bash
     cd frontend
     npm install
     cd ..
     ```
 
-## Uso
+## Usage
 
-Para iniciar la aplicación de forma sencilla:
-
-1.  **Inicia el servidor n8n remoto:** Asegúrate de que tu instancia de `n8n` esté funcionando y accesible.
-2.  **Ejecuta el script de inicio (Windows):**
-    En la raíz del proyecto (`aiVideoCreator/`), haz doble clic en `start-app.bat`.
-
-    Este script abrirá automáticamente el servidor de backend, el servidor de frontend y la aplicación en tu navegador predeterminado (`http://localhost:5173`).
-
-### Ejecución Manual (Otros Sistemas Operativos)
-
-Si no estás en Windows o prefieres iniciar los servidores manualmente:
-
-1.  **Iniciar el Backend:**
+1.  **Start the remote n8n server:** Ensure your `n8n` instance is running and accessible.
+2.  **Start the application:** From the project's root directory (`aiVideoCreator/`), run the following command:
     ```bash
-    cd backend
-    node server.js
+    npm start
     ```
-2.  **Iniciar el Frontend:**
-    ```bash
-    cd frontend
-    npm run dev
-    ```
-    Luego, abre tu navegador y ve a `http://localhost:5173`.
+    This will use `concurrently` to start both the backend and frontend servers in a single terminal. The application should automatically open in your default browser at `http://localhost:5173`.
 
-### Detener la aplicación
+### For Windows Users (Easy Start)
 
-Para detener la aplicación, simplemente cierra las ventanas de la terminal que se abrieron para el "Backend Server" y el "Frontend Dev Server".
+Alternatively, you can simply double-click the `start-app.bat` file in the root directory. This will open a new terminal and run `npm start` for you.
+
+## Stopping the Application
+
+To stop both servers, go to the terminal where they are running and press `Ctrl+C`.
