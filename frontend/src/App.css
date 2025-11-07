@@ -1,37 +1,55 @@
+body {
+  margin: 0;
+  display: flex;
+  /* place-items: center; */ /* Removed to allow more control over content alignment */
+  align-items: flex-start; /* Align content to the top */
+  justify-content: center; /* Center content horizontally */
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #ffffff; /* White background for the entire page */
+  color: #333333; /* Dark text color for the page */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Professional font */
+}
+
 #root {
-  max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  width: 100%; /* Allow root to take full width */
 }
 
 .App {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh; /* Ensure it takes full viewport height */
+  /* align-items: center; */ /* Removed to allow children to define their own width */
+  /* justify-content: flex-start; */ /* Removed, handled by body or children */
+  min-height: 100vh;
+  width: 100%;
+  padding-top: 20px; /* Add some top padding */
 }
 
 .project-selection-container {
-  background-color: #2a2a2a;
+  background-color: #f0f0f0; /* Light background for containers */
   padding: 3rem;
   border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Lighter shadow */
+  color: #333333;
+  margin: 0 auto; /* Center the container */
+  max-width: 800px; /* Limit width for project selection */
 }
 
 .project-selection-container h1 {
-  color: #4CAF50; /* A nice green */
+  color: #007bff; /* A professional blue */
   margin-bottom: 1rem;
 }
 
 .project-selection-container p {
-  color: #ccc;
+  color: #555555;
   margin-bottom: 2rem;
 }
 
 .button-group button {
-  background-color: #4CAF50;
+  background-color: #007bff; /* Professional blue button */
   color: white;
   padding: 15px 30px;
   border: none;
@@ -43,5 +61,61 @@
 }
 
 .button-group button:hover {
-  background-color: #45a049;
+  background-color: #0056b3;
+}
+
+/* Styles for script display and draggable cards */
+.script-display {
+  width: 100%; /* Take full width of parent */
+  max-width: 1400px; /* Set a generous max-width for content */
+  margin: 20px auto; /* Center horizontally and add top margin */
+  text-align: left;
+}
+
+.script-display h3 {
+  color: #007bff; /* Professional blue for heading */
+  margin-bottom: 15px;
+}
+
+.script-display ol {
+  list-style: none;
+  padding: 0;
+}
+
+.script-display li {
+  margin-bottom: 10px;
+}
+
+/* Draggable card specific styles */
+.DraggableScriptCard {
+  width: 100%; /* Make card fill its container */
+  box-sizing: border-box;
+  padding: 15px;
+  margin-bottom: 10px;
+  background-color: #f8f9fa; /* Very light gray for cards */
+  color: #333333; /* Dark text color */
+  border: 1px solid #e0e0e0; /* Subtle border */
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); /* Lighter, professional shadow */
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.DraggableScriptCard:hover {
+  background-color: #e9ecef; /* Slightly darker on hover */
+  border-color: #c0c0c0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12); /* More prominent shadow on hover */
+}
+
+.DraggableScriptCard input[type="text"] {
+  background-color: #ffffff; /* White background for input */
+  border: 1px solid #ced4da; /* Light gray border */
+  color: #333333; /* Dark text color */
+  padding: 8px;
+  border-radius: 4px;
+  width: calc(100% - 60px); /* Adjust width to account for padding and shot number */
+}
+
+.DraggableScriptCard input[type="text"]:focus {
+  border-color: #007bff; /* Professional blue highlight on focus */
+  outline: none;
 }

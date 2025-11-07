@@ -35,6 +35,9 @@ wss.on('connection', (ws) => {
         case 'load_project':
           handleLoadProject(ws, parsedMessage.payload);
           break;
+        case 'save_project':
+          handleSaveProject(ws, parsedMessage.payload);
+          break;
         default:
           ws.send(JSON.stringify({ status: 'error', message: 'Unknown action' }));
       }
@@ -75,6 +78,9 @@ function handleNewProject(ws, payload) {
       idea: '',
       artDirection: {},
       shots: [],
+      characters: [], // New field for global characters
+      outfits: [],    // New field for global outfits
+      locations: [],  // New field for global locations
     };
     fs.writeFileSync(path.join(projectPath, `${sanitizedProjectName}.aivc`), JSON.stringify(initialProjectData, null, 2));
 
@@ -138,6 +144,24 @@ function handleLoadProject(ws, payload) {
       console.error(`Failed to parse project file '${projectFilePath}':`, parseError);
       ws.send(JSON.stringify({ status: 'error', message: `Project file for '${sanitizedProjectName}' is corrupted.` }));
     }
+  });
+}
+
+function handleSaveProject(ws, projectData) {
+  if (!projectData || !projectData.projectName) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Project data or project name is missing for saving.' }));
+  }
+
+  const sanitizedProjectName = projectData.projectName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const projectFilePath = path.join(projectsDir, sanitizedProjectName, `${sanitizedProjectName}.aivc`);
+
+  fs.writeFile(projectFilePath, JSON.stringify(projectData, null, 2), 'utf8', (err) => {
+    if (err) {
+      console.error(`Failed to save project '${sanitizedProjectName}':`, err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to save project on the server.' }));
+    }
+    console.log(`Project '${sanitizedProjectName}' saved successfully.`);
+    ws.send(JSON.stringify({ status: 'success', action: 'project_saved', payload: { projectName: sanitizedProjectName } }));
   });
 }
 
