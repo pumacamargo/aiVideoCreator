@@ -3,19 +3,21 @@ import './App.css';
 import { DndContext, closestCorners } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { DraggableScriptCard } from './components/DraggableScriptCard';
+import { ArtDirectionCard } from './components/ArtDirectionCard';
 
 function App() {
   const [currentView, setCurrentView] = useState('projectSelection');
   const [project, setProject] = useState(null);
   const [projectList, setProjectList] = useState([]);
   const [videoIdea, setVideoIdea] = useState('pomerania siendo un policia'); // New state for video idea
+  const [artDirectionIdea, setArtDirectionIdea] = useState(''); // New state for art direction idea
   const [scriptResponse, setScriptResponse] = useState([]); // New state for n8n script response
   const [isLoading, setIsLoading] = useState(false); // New state for loading indicator
   const [isSaving, setIsSaving] = useState(false); // New state for saving indicator
   const [history, setHistory] = useState([]); // History of project states for undo/redo
   const [historyPointer, setHistoryPointer] = useState(-1); // Current position in history
   const [currentStep, setCurrentStep] = useState(0); // New state for current pipeline step (0-indexed)
-  const pipelineSteps = ['Script', 'Art Direction (Global)', 'Art Direction (Shots)', '2D Image Generation', 'Video Generation', 'Trimming', 'Render']; // Define pipeline steps
+  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Trimming', 'Render']; // Define pipeline steps
   const websocket = useRef(null);
 
   // Debounce function for auto-saving
@@ -83,8 +85,12 @@ function App() {
         setProjectList(message.payload.projects);
         setCurrentView('projectOpenSelection');
       } else if (message.action === 'project_loaded' && message.status === 'success') {
-        console.log('Project loaded successfully:', message.payload); // Log the loaded project data
-        setProject(message.payload);
+        setProject({
+          ...message.payload,
+          characters: message.payload.characters || [],
+          locations: message.payload.locations || [],
+          outfits: message.payload.outfits || [],
+        });
         setScriptResponse(message.payload.shots || []); // Also update scriptResponse from loaded project
         setCurrentView('mainApp');
       } else if (message.action === 'project_saved' && message.status === 'success') {
@@ -143,15 +149,11 @@ function App() {
     }
   };
 
-  const handleSendIdeaToN8N = async () => {
+  const handleSendIdeaToN8N = async (webhookUrl, payload, processResponse) => {
     setIsLoading(true); // Set loading to true
-    const n8nWebhookUrl = 'https://n8n.lemonsushi.com/webhook/scriptIdea';
-    const payload = {
-      videoIdea: videoIdea,
-    };
 
     try {
-      const response = await fetch(n8nWebhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,31 +165,7 @@ function App() {
         const data = await response.json();
         console.log('N8N Webhook Response:', data);
 
-        // Process the n8n response to extract shots
-        let allShots = [];
-        if (data && Array.isArray(data) && data.length > 0) {
-          const scriptSections = data[0]; // Assuming the first element contains the sections
-          for (const sectionKey in scriptSections) {
-            if (Object.hasOwnProperty.call(scriptSections, sectionKey)) {
-              const sectionShots = scriptSections[sectionKey];
-              if (Array.isArray(sectionShots)) {
-                allShots = allShots.concat(sectionShots.map(shot => ({
-                  id: `shot-${shot.shot_number}`,
-                  script: shot.action_shot,
-                  // Initialize other fields as per planApp.md if needed
-                  imageUrl: '',
-                  videoUrl: '',
-                })));
-              }
-            }
-          }
-        }
-        setScriptResponse(allShots);
-        setProject(prevProject => ({
-          ...prevProject,
-          idea: videoIdea, // Save the idea that generated the script
-          shots: allShots,
-        }));
+        processResponse(data); // Use the callback to process the response
 
         alert('Idea sent to n8n successfully! Check console for response and script displayed.');
       } else {
@@ -446,8 +424,21 @@ function App() {
 
       {currentView === 'mainApp' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: '1400px', padding: '10px 0' }}>
-            <button onClick={handlePreviousStep} disabled={currentStep === 0} style={{ padding: '8px 15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Previous</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 0' }}>
+            <button
+              onClick={handlePreviousStep}
+              disabled={currentStep === 0}
+              style={{
+                padding: '8px 15px',
+                background: currentStep === 0 ? '#cccccc' : '#007bff', // Grey when disabled, blue otherwise
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: currentStep === 0 ? 'not-allowed' : 'pointer' // Change cursor when disabled
+              }}
+            >
+              Previous
+            </button>
             <div style={{ display: 'flex', gap: '10px' }}>
               {pipelineSteps.map((step, index) => (
                 <span key={step} style={{
@@ -465,38 +456,77 @@ function App() {
             <button onClick={handleNextStep} disabled={currentStep === pipelineSteps.length - 1} style={{ padding: '8px 15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Next</button>
           </div>
 
-          <h2>
-            Project: {project?.projectName}
-            {isSaving && <span style={{ marginLeft: '10px', fontSize: '0.9em', color: '#007bff' }}>Saving...</span>}
-          </h2>
-          <p>Main application view will go here.</p>
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '1400px', margin: '0 auto' }}>
+            <h2 style={{ color: '#007bff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              Project: {project?.projectName}
+              <button onClick={() => setCurrentView('projectSelection')} style={{ padding: '2px 6px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.6em' }}>
+                My Projects
+              </button>
+              {isSaving && <span style={{ marginLeft: '10px', fontSize: '0.9em', color: '#007bff' }}>Saving...</span>}
+            </h2>
+          </div>
+
 
           {/* Conditional rendering based on currentStep */}
           {currentStep === 0 && (
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <button onClick={handleUndo} disabled={historyPointer <= 0} style={{ marginRight: '10px' }}>Undo</button>
-                <button onClick={handleRedo} disabled={historyPointer >= history.length - 1}>Redo</button>
-              </div>
-              <div>
-                <input
-                  type="text"
-                  value={videoIdea}
-                  onChange={(e) => setVideoIdea(e.target.value)}
-                  placeholder="Enter video idea"
-                  disabled={isLoading} // Disable input while loading
-                />
-                <button onClick={handleSendIdeaToN8N} disabled={isLoading}>
-                  {isLoading ? 'Sending...' : 'Send Idea to n8n'} {/* Change button text while loading */}
-                </button>
-                <button onClick={handleAddNewCard} style={{ marginLeft: '10px' }}>Add New Card</button>
+            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div className="generate-ai-section" style={{ width: '100%', marginBottom: '20px' }}>
+                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generate AI Content:</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+                  <textarea
+                    value={videoIdea}
+                    onChange={(e) => setVideoIdea(e.target.value)}
+                    placeholder="Enter video idea"
+                    disabled={isLoading}
+                    rows="4"
+                    style={{ flexGrow: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical' }}
+                  />
+                  <button onClick={() => handleSendIdeaToN8N(
+                    'https://n8n.lemonsushi.com/webhook/scriptIdea',
+                    { videoIdea: videoIdea },
+                    (data) => {
+                      let allShots = [];
+                      if (data && Array.isArray(data) && data.length > 0) {
+                        const scriptSections = data[0];
+                        for (const sectionKey in scriptSections) {
+                          if (Object.hasOwnProperty.call(scriptSections, sectionKey)) {
+                            const sectionShots = scriptSections[sectionKey];
+                            if (Array.isArray(sectionShots)) {
+                              allShots = allShots.concat(sectionShots.map(shot => ({
+                                id: `shot-${shot.shot_number}`,
+                                script: shot.action_shot,
+                                imageUrl: '',
+                                videoUrl: '',
+                              })));
+                            }
+                          }
+                        }
+                      }
+                      setScriptResponse(allShots);
+                      setProject(prevProject => ({
+                        ...prevProject,
+                        idea: videoIdea,
+                        shots: allShots,
+                      }));
+                    }
+                  )} disabled={isLoading} style={{ background: '#007bff', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', height: 'fit-content' }}>
+                    {isLoading ? 'Generating...' : 'Generate'}
+                  </button>
+                </div>
               </div>
 
               {isLoading && <p>Loading script from n8n...</p>} {/* Loading indicator */}
 
               {scriptResponse.length > 0 && (
                 <div className="script-display">
-                  <h3>Generated Script:</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <h3>Generated Script:</h3>
+                    <div>
+                      <button onClick={handleUndo} disabled={historyPointer <= 0} style={{ marginRight: '10px' }}>Undo</button>
+                      <button onClick={handleRedo} disabled={historyPointer >= history.length - 1} style={{ marginRight: '10px' }}>Redo</button>
+                      <button onClick={handleAddNewCard} style={{ background: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>Add New Card</button>
+                    </div>
+                  </div>
                   <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
                     <SortableContext items={scriptResponse.map(item => item.id)} strategy={verticalListSortingStrategy}>
                       {
@@ -518,153 +548,107 @@ function App() {
           )}
 
           {currentStep === 1 && (
-            <div className="art-direction-global-elements" style={{ width: '100%', maxWidth: '1400px', margin: '20px auto', textAlign: 'left' }}>
-              <h3>Art Direction: Global Elements</h3>
-
-              {/* Characters Section */}
-              <div style={{ marginBottom: '30px', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '15px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)' }}>
-                <h4>Characters</h4>
-                {project?.characters.map(char => (
-                  <div key={char.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <input
-                      type="text"
-                      value={char.description}
-                      onChange={(e) => handleUpdateProjectElement('characters', char.id, e.target.value)}
-                      style={{ flexGrow: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-                    />
-                    <button onClick={() => handleDeleteProjectElement('characters', char.id)} style={{ background: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              {/* Generate AI Content Section */}
+              <div className="generate-ai-section" style={{ width: '100%', marginBottom: '20px' }}>
+                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generate AI Content:</h3>
+                
+                {/* Script Display */}
+                <div style={{ marginBottom: '15px' }}>
+                  <h5 style={{ marginBottom: '5px', textAlign: 'left' }}>Script:</h5>
+                  <div style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', background: '#f8f9fa', maxHeight: '150px', overflowY: 'auto' }}>
+                    {scriptResponse.map(shot => (
+                      <p key={shot.id} style={{ margin: 0, padding: '2px 0', fontSize: '0.8em' }}>{shot.script}</p>
+                    ))}
                   </div>
-                ))}
-                <button onClick={() => handleAddProjectElement('characters')} style={{ background: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Add Character</button>
-                <button onClick={() => handleGenerateProjectElementsAI('characters')} disabled={isLoading} style={{ background: '#007bff', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>
-                  {isLoading ? 'Generating...' : 'Generate Characters with AI'}
-                </button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+                  <textarea
+                    value={artDirectionIdea}
+                    onChange={(e) => setArtDirectionIdea(e.target.value)}
+                    placeholder="other than the script any other details you would like to add for Characters, Locations and outfits"
+                    disabled={isLoading}
+                    rows="4"
+                    style={{ flexGrow: 1, padding: '10px', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical' }}
+                  />
+                  <button onClick={() => handleSendIdeaToN8N(
+                    'https://n8n.lemonsushi.com/webhook/artdirection',
+                    { videoIdea: artDirectionIdea, script: scriptResponse.map(shot => shot.script).join('\n') }, // Pass script as well
+                    (data) => {
+                      if (data && data.characters && data.locations && data.outfits) {
+                        setProject(prevProject => ({
+                          ...prevProject,
+                          idea: artDirectionIdea, // Update the idea with the artDirectionIdea
+                          characters: data.characters,
+                          locations: data.locations,
+                          outfits: data.outfits,
+                        }));
+                      }
+                    }
+                  )} disabled={isLoading} style={{ background: '#007bff', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', height: 'fit-content' }}>
+                    {isLoading ? 'Generating...' : 'Generate'}
+                  </button>
+                </div>
               </div>
 
-              {/* Outfits Section */}
-              <div style={{ marginBottom: '30px', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '15px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)' }}>
-                <h4>Outfits</h4>
-                {project?.outfits.map(outfit => (
-                  <div key={outfit.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <input
-                      type="text"
-                      value={outfit.description}
-                      onChange={(e) => handleUpdateProjectElement('outfits', outfit.id, e.target.value)}
-                      style={{ flexGrow: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-                    />
-                    <button onClick={() => handleDeleteProjectElement('outfits', outfit.id)} style={{ background: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+              {/* Characters, Locations, Outfits Sections */}
+              <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '20px' }}>
+                {/* Characters Section */}
+                <div style={{ marginBottom: '20px' }}>
+                  <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Characters</h3>
+                  <div>
+                    {project?.characters?.map(char => (
+                      <ArtDirectionCard key={char.name} name={char.name} description={char.description} />
+                    ))}
                   </div>
-                ))}
-                <button onClick={() => handleAddProjectElement('outfits')} style={{ background: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Add Outfit</button>
-                <button onClick={() => handleGenerateProjectElementsAI('outfits')} disabled={isLoading} style={{ background: '#007bff', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>
-                  {isLoading ? 'Generating...' : 'Generate Outfits with AI'}
-                </button>
-              </div>
+                </div>
 
-              {/* Locations Section */}
-              <div style={{ marginBottom: '30px', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '15px', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)' }}>
-                <h4>Locations</h4>
-                {project?.locations.map(location => (
-                  <div key={location.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <input
-                      type="text"
-                      value={location.description}
-                      onChange={(e) => handleUpdateProjectElement('locations', location.id, e.target.value)}
-                      style={{ flexGrow: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-                    />
-                    <button onClick={() => handleDeleteProjectElement('locations', location.id)} style={{ background: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                {/* Locations Section */}
+                <div style={{ marginBottom: '20px' }}>
+                  <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Locations</h3>
+                  <div>
+                    {project?.locations?.map(loc => (
+                      <ArtDirectionCard key={loc.name} name={loc.name} description={loc.description} />
+                    ))}
                   </div>
-                ))}
-                <button onClick={() => handleAddProjectElement('locations')} style={{ background: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Add Location</button>
-                <button onClick={() => handleGenerateProjectElementsAI('locations')} disabled={isLoading} style={{ background: '#007bff', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>
-                  {isLoading ? 'Generating...' : 'Generate Locations with AI'}
-                </button>
+                </div>
+
+                {/* Outfits Section */}
+                <div>
+                  <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Outfits</h3>
+                  <div>
+                    {project?.outfits?.map(outfit => (
+                      <ArtDirectionCard key={outfit.name} name={outfit.name} description={outfit.description} />
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="art-direction-step" style={{ width: '100%', maxWidth: '1400px', margin: '20px auto' }}>
-              <h3>Art Direction: Define Shot Details</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '10px', borderBottom: '1px solid #ccc', paddingBottom: '10px', marginBottom: '10px' }}>
-                <strong>Image</strong>
-                <strong>Description</strong>
-                <strong>Actions</strong>
-              </div>
-              {project?.shots.length > 0 ? (
-                project.shots.map(shot => (
-                  <div key={shot.id} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '10px', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
-                    <div style={{ width: '100px', height: '100px', backgroundColor: '#f0f0f0', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                      {shot.imageUrl ? (
-                        <img src={shot.imageUrl} alt="Shot" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                      ) : (
-                        <span>Placeholder</span>
-                      )}
-                    </div>
-                    <div>
-                      <p><strong>Script:</strong> {shot.script}</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '10px' }}>
-                        <label>Shot Type:
-                          <input
-                            type="text"
-                            value={shot.shotType}
-                            onChange={(e) => handleUpdateShotDetails(shot.id, 'shotType', e.target.value)}
-                            style={{ width: 'calc(100% - 80px)', marginLeft: '5px', padding: '5px', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </label>
-                        <label>Location:
-                          <input
-                            type="text"
-                            value={shot.location}
-                            onChange={(e) => handleUpdateShotDetails(shot.id, 'location', e.target.value)}
-                            style={{ width: 'calc(100% - 80px)', marginLeft: '5px', padding: '5px', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </label>
-                        <label>Outfit:
-                          <input
-                            type="text"
-                            value={shot.outfit}
-                            onChange={(e) => handleUpdateShotDetails(shot.id, 'outfit', e.target.value)}
-                            style={{ width: 'calc(100% - 80px)', marginLeft: '5px', padding: '5px', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    <div>
-                      <button onClick={() => handleGenerateArtDirectionAI(shot.id, shot.script)} disabled={isLoading} style={{ background: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>
-                        {isLoading ? 'Generating...' : 'Generate AI Values'}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p>No shots defined for Art Direction. Please go back to the Script step.</p>
-              )}
-            </div>
-          )}
-
-          {currentStep === 3 && (
             <div>
               <h3>2D Image Generation Step</h3>
               <p>Content for 2D Image Generation will go here.</p>
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <div>
               <h3>Video Generation Step</h3>
               <p>Content for Video Generation will go here.</p>
             </div>
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <div>
               <h3>Trimming Step</h3>
               <p>Content for Trimming will go here.</p>
             </div>
           )}
 
-          {currentStep === 6 && (
+          {currentStep === 5 && (
             <div>
               <h3>Render Step</h3>
               <p>Content for Render will go here.</p>
