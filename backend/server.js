@@ -3,11 +3,15 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch'); // Import node-fetch
 
 const app = express();
 const port = 3001;
 
 const projectsDir = path.join(__dirname, '..', 'projects');
+
+// Serve static files from the 'projects' directory
+app.use('/projects', express.static(projectsDir));
 
 // Ensure the main projects directory exists
 if (!fs.existsSync(projectsDir)) {
@@ -20,7 +24,7 @@ const wss = new WebSocketServer({ server });
 wss.on('connection', (ws) => {
   console.log('Client connected to WebSocket server');
 
-  ws.on('message', (message) => {
+  ws.on('message', async (message) => { // Make the handler async
     try {
       const parsedMessage = JSON.parse(message);
       console.log('Received message from client:', parsedMessage);
@@ -38,6 +42,9 @@ wss.on('connection', (ws) => {
         case 'save_project':
           handleSaveProject(ws, parsedMessage.payload);
           break;
+        case 'save_image_to_project':
+          await handleSaveImageToProject(ws, parsedMessage.payload);
+          break;
         default:
           ws.send(JSON.stringify({ status: 'error', message: 'Unknown action' }));
       }
@@ -51,6 +58,47 @@ wss.on('connection', (ws) => {
     console.log('Client disconnected');
   });
 });
+
+async function handleSaveImageToProject(ws, payload) {
+  const { projectName, externalImageUrl } = payload;
+  if (!projectName || !externalImageUrl) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Project name and external image URL are required to save image.' }));
+  }
+
+  const sanitizedProjectName = projectName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const projectImagesDir = path.join(projectsDir, sanitizedProjectName, 'assets', 'images');
+
+  try {
+    fs.mkdirSync(projectImagesDir, { recursive: true });
+
+    const response = await fetch(externalImageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download image: ${response.statusText}`);
+    }
+
+    const imageBuffer = await response.buffer();
+    const imageFileName = `${Date.now()}_${path.basename(new URL(externalImageUrl).pathname)}`;
+    const localImagePath = path.join(projectImagesDir, imageFileName);
+    const relativeImagePath = path.join('projects', sanitizedProjectName, 'assets', 'images', imageFileName); // Path accessible from frontend
+
+    fs.writeFileSync(localImagePath, imageBuffer);
+
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'image_saved_to_project',
+      payload: {
+        projectName: sanitizedProjectName,
+        externalImageUrl: externalImageUrl,
+        localImageUrl: `http://localhost:${port}/${relativeImagePath.replace(/\\/g, '/')}` // Ensure URL is correct for frontend
+      }
+    }));
+    console.log(`Image saved to project '${sanitizedProjectName}': ${localImagePath}`);
+
+  } catch (error) {
+    console.error(`Failed to save image to project '${sanitizedProjectName}':`, error);
+    ws.send(JSON.stringify({ status: 'error', message: `Failed to save image to project: ${error.message}` }));
+  }
+}
 
 function handleNewProject(ws, payload) {
   const { projectName } = payload;
@@ -70,6 +118,7 @@ function handleNewProject(ws, payload) {
     // Create project folders
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'assets'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, 'assets', 'images'), { recursive: true }); // Ensure images directory exists
 
     // Create initial project file
     const initialProjectData = {
