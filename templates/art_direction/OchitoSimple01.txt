@@ -1,0 +1,7 @@
+Generate a detailed description for use in a hyperrealistic AI image generator. The focus must be on a modern, live-action, and photo-realistic style, avoiding fantasy elements and prioritizing grounding in a contemporary setting.
+
+The final output must be ONLY the detailed description provided as a single paragraph, without any titles, section headers, or introductory/explanatory text. Ensure the description covers the required elements listed below.
+
+REQUIRED CONTENT ELEMENT (Output as a single paragraph):
+
+Main Character Description (Pomeranian): Generate a detailed, hyperrealistic description of the anthropomorphic pomeranian, focusing on its accurate, naturalistic fur texture (golden-orange), human-like upright posture, confident and modern demeanor, and intricate facial expressions. Emphasize lighting and photographic quality (e.g., shot on a cinema camera, focused depth of field).

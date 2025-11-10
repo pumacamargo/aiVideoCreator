@@ -56,7 +56,7 @@ const buttonStyle = {
   cursor: 'pointer',
 };
 
-export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl }) {
+export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate }) {
   const [loadingShotId, setLoadingShotId] = useState(null);
   const [shotForCarousel, setShotForCarousel] = useState(null);
 
@@ -67,7 +67,12 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
     }
     setLoadingShotId(shot.id);
     try {
-      const payload = { script: shot.script, artDirection: artDirectionText, image: imageGenUrl };
+      const payload = { 
+        promptTemplate: imageGenPromptTemplate,
+        script: shot.script, 
+        artDirection: artDirectionText, 
+        image: imageGenUrl 
+      };
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

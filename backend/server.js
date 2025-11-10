@@ -9,13 +9,17 @@ const app = express();
 const port = 3001;
 
 const projectsDir = path.join(__dirname, '..', 'projects');
+const templatesDir = path.join(__dirname, '..', 'templates');
 
 // Serve static files from the 'projects' directory
 app.use('/projects', express.static(projectsDir));
 
-// Ensure the main projects directory exists
+// Ensure the main projects and templates directories exist
 if (!fs.existsSync(projectsDir)) {
   fs.mkdirSync(projectsDir);
+}
+if (!fs.existsSync(templatesDir)) {
+  fs.mkdirSync(templatesDir);
 }
 
 const server = http.createServer(app);
@@ -45,6 +49,15 @@ wss.on('connection', (ws) => {
         case 'save_image_to_project':
           await handleSaveImageToProject(ws, parsedMessage.payload);
           break;
+        case 'save_template':
+          handleSaveTemplate(ws, parsedMessage.payload);
+          break;
+        case 'list_templates':
+          handleListTemplates(ws, parsedMessage.payload);
+          break;
+        case 'load_template':
+          handleLoadTemplate(ws, parsedMessage.payload);
+          break;
         default:
           ws.send(JSON.stringify({ status: 'error', message: 'Unknown action' }));
       }
@@ -58,6 +71,71 @@ wss.on('connection', (ws) => {
     console.log('Client disconnected');
   });
 });
+
+function handleListTemplates(ws, payload) {
+  const { templateType } = payload;
+  if (!templateType) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Template type is required.' }));
+  }
+  const typeDir = path.join(templatesDir, templateType);
+  fs.mkdirSync(typeDir, { recursive: true }); // Ensure directory exists
+
+  fs.readdir(typeDir, (err, files) => {
+    if (err) {
+      console.error('Failed to list templates:', err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to read templates directory.' }));
+    }
+    const templateNames = files.map(file => path.parse(file).name);
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'template_list',
+      payload: { templates: templateNames, templateType: templateType }
+    }));
+  });
+}
+
+function handleLoadTemplate(ws, payload) {
+  const { templateName, templateType } = payload;
+  if (!templateName || !templateType) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Template name and type are required for loading.' }));
+  }
+
+  const sanitizedTemplateName = templateName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const templateFilePath = path.join(templatesDir, templateType, `${sanitizedTemplateName}.txt`);
+
+  fs.readFile(templateFilePath, 'utf8', (err, data) => {
+    if (err) {
+      console.error(`Failed to read template file '${templateFilePath}':`, err);
+      return ws.send(JSON.stringify({ status: 'error', message: `Could not load template '${sanitizedTemplateName}'.` }));
+    }
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'template_loaded',
+      payload: { templateName: sanitizedTemplateName, templateContent: data, templateType: templateType }
+    }));
+  });
+}
+
+function handleSaveTemplate(ws, payload) {
+  const { templateName, templateContent, templateType } = payload;
+  if (!templateName || !templateContent || !templateType) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Template name, content, and type are required.' }));
+  }
+
+  const sanitizedTemplateName = templateName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const typeDir = path.join(templatesDir, templateType);
+  fs.mkdirSync(typeDir, { recursive: true }); // Ensure directory exists
+  const templateFilePath = path.join(typeDir, `${sanitizedTemplateName}.txt`);
+
+  fs.writeFile(templateFilePath, templateContent, 'utf8', (err) => {
+    if (err) {
+      console.error(`Failed to save template '${sanitizedTemplateName}':`, err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to save template on the server.' }));
+    }
+    console.log(`Template '${sanitizedTemplateName}' of type '${templateType}' saved successfully.`);
+    ws.send(JSON.stringify({ status: 'success', action: 'template_saved', payload: { templateName: sanitizedTemplateName, templateType: templateType } }));
+  });
+}
 
 async function handleSaveImageToProject(ws, payload) {
   const { projectName, externalImageUrl } = payload;

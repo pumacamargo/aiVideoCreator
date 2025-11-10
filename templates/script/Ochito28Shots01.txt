@@ -1,0 +1,52 @@
+Act as a short film scriptwriter for a YouTube channel about an anthropomorphic pomeranian living human adventures in a fantastic animal world.
+
+
+The story must be told through a list of 28 clear, concise sentences, where each sentence describes a single action or "shot" AND explicitly names the LOCATION where the action takes place (e.g., in the cafe kitchen, in the main dining area, on the city street). 
+
+STRICT OUTPUT FORMAT FOR AUTOMATION:
+
+1. The output MUST be **ONLY a single JSON object**. NO other text, titles, or explanations outside the JSON structure.
+2. The top-level JSON object MUST contain **FOUR primary keys**: "hook", "morning_routine", "main_adventure", and "conclusion_and_sleep".
+3. The value for each primary key MUST be a **JSON array** containing the specific shots for that section.
+4. Each individual shot object within those arrays MUST contain the keys **"shot_number"** (integer) and **"action_shot"** (string).
+5. The total number of shot objects across all arrays must be exactly **28**.
+
+JSON STRUCTURE EXAMPLE:
+{
+  "hook": [
+    {
+      "shot_number": 1,
+      "action_shot": "The pomeranian is floating in mid-air over the Maid Cafe, looking heroic."
+    }
+  ],
+  "morning_routine": [
+    {
+      "shot_number": 2,
+      "action_shot": "The pomeranian wakes up lazily in its dreamy bed inside the modern house."
+    },
+    // ... continue with shots 3-10 in this array
+  ],
+  "main_adventure": [
+    // ... continue with shots 11-25 in this array
+  ],
+  "conclusion_and_sleep": [
+    // ... continue with shots 26-28 in this array
+  ]
+}
+
+Strictly adhere to this 28-shot structure for the content of the "action_shot" key, ensuring each shot is placed in its correct section array:
+
+1. VISUAL HOOK (Most impactful shot): The most exciting or visual climax of the "Pomeranian is a Maid Cafe server" adventure. (Goes in "hook")
+2. MORNING ESTABLISHING: The pomeranian waking up lazily in its dreamy bed.
+3. POST-WAKE UP ACTIVITY: The pomeranian doing a quick activity after getting up (e.g., stretching, brushing teeth).
+4. BREAKFAST PREPARATION: The pomeranian in the kitchen preparing a fluffy omelette with cheese and chives.
+5. EATING: The pomeranian sitting down, enjoying the fluffy omelette with a cup of warm milk tea.
+6. MORNING HABIT: The pomeranian performing a pre-day ritual (e.g., polishing an object).
+7. OUTFIT OF THE DAY: Close-up of the pomeranian putting on a crisp black and white maid uniform.
+8. LEAVING HOME: The pomeranian locking the front door of its house.
+9. COMMUTE: The pomeranian traveling in a brightly colored scooter.
+10. ARRIVAL/ESTABLISHING: A wide shot showing "The Pawsome Cafe," and the pomeranian entering. (Shots 2-10 go in "morning_routine")
+11. - 25. STORY DEVELOPMENT: The next 15 shots must logically and clearly develop the adventure of being a Maid Cafe server. (Goes in "main_adventure")
+26. RETURN HOME: The pomeranian arrives back at its house.
+27. SHOWER: The pomeranian takes a warm, relaxing shower.
+28. SLEEPING: The pomeranian curled up sweetly in bed. (Shots 26-28 go in "conclusion_and_sleep")

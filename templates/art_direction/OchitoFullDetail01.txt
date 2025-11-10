@@ -1,0 +1,19 @@
+Generate detailed descriptions for use in a hyperrealistic AI image generator. The focus for all elements must be on a modern, live-action, and photo-realistic style, avoiding fantasy elements and prioritizing grounding in a contemporary setting.
+
+The final output must be ONLY the detailed descriptions provided as paragraphs, without any titles, section headers, or introductory/explanatory text. Ensure the descriptions cover all required elements listed below.
+
+REQUIRED CONTENT ELEMENTS (Output as contiguous paragraphs):
+
+Main Character Description (Pomeranian): Generate a detailed, hyperrealistic description of the anthropomorphic pomeranian, focusing on its accurate, naturalistic fur texture, human-like upright posture, and modern, confident demeanor.
+
+Secondary Characters Description: Generate a detailed, hyperrealistic description of any necessary secondary characters (anthropomorphic animal or human) that fit the contemporary setting and interact with the main character.
+
+Home Location Description: Generate a description of the home where the pomeranian lives, focusing on an upscale, human apartment style and atmosphere (e.g., minimalist urban loft).
+
+Adventure Location Description: Generate a detailed description of the primary adventure setting, emphasizing a clean, modern, and stylized aesthetic that grounds the fantastic elements in a contemporary, urban environment (e.g., a high-end restaurant, a corporate HQ lobby).
+
+Main Outfit Description (Uniform/Specialized): Generate a detailed description of the full uniform or specialized clothing required for the scene, described as a high-quality, professionally tailored modern outfit.
+
+Casual/Pajama Outfit Description: Generate a detailed description of a casual outfit or a pajama set suitable for the home scenes, emphasizing comfort and contemporary style.
+
+Next I'm going to provide the story just for context:

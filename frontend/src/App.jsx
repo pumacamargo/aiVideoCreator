@@ -5,6 +5,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { DraggableScriptCard } from './components/DraggableScriptCard';
 import { ArtDirectionCard } from './components/ArtDirectionCard';
 import { ImageGenerationTable } from './components/ImageGenerationTable';
+import { VideoGenerationTable } from './components/VideoGenerationTable';
 
 const WEBHOOK_URLS = {
   test: {
@@ -35,6 +36,26 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [imageGenUrl, setImageGenUrl] = useState('');
   const [environment, setEnvironment] = useState('production');
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [promptTemplate, setPromptTemplate] = useState('Create a script for a short video about {{videoIdea}}. The script should have a few shots, each with a clear action.');
+  const [showTemplateList, setShowTemplateList] = useState(false);
+  const [templateList, setTemplateList] = useState([]);
+  const [selectedTemplateName, setSelectedTemplateName] = useState(null);
+
+  // State for Art Direction Templates
+  const [artDirectionPromptTemplate, setArtDirectionPromptTemplate] = useState('Generate an art direction based on the following script: {{script}}. Additional guidance: {{artDirectionIdea}}');
+  const [showArtDirectionTemplateEditor, setShowArtDirectionTemplateEditor] = useState(false);
+  const [selectedArtDirectionTemplateName, setSelectedArtDirectionTemplateName] = useState(null);
+  const [artDirectionTemplateList, setArtDirectionTemplateList] = useState([]);
+  const [showArtDirectionTemplateList, setShowArtDirectionTemplateList] = useState(false);
+
+  // State for Image Generation Templates
+  const [imageGenPromptTemplate, setImageGenPromptTemplate] = useState('Generate an image based on the following script shot: {{script}}. Art direction: {{artDirection}}. Image reference: {{image}}');
+  const [showImageGenTemplateEditor, setShowImageGenTemplateEditor] = useState(false);
+  const [selectedImageGenTemplateName, setSelectedImageGenTemplateName] = useState(null);
+  const [imageGenTemplateList, setImageGenTemplateList] = useState([]);
+  const [showImageGenTemplateList, setShowImageGenTemplateList] = useState(false);
+
   const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Trimming', 'Render'];
   const websocket = useRef(null);
 
@@ -73,8 +94,18 @@ function App() {
   }, [project]);
 
   useEffect(() => {
+    if (currentView === 'mainApp' && websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+      websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'script' } }));
+      websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'art_direction' } }));
+      websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
+    }
+  }, [currentView]);
+
+  useEffect(() => {
     websocket.current = new WebSocket('ws://localhost:3001');
-    websocket.current.onopen = () => console.log('WebSocket connection established');
+    websocket.current.onopen = () => {
+      console.log('WebSocket connection established');
+    };
     websocket.current.onmessage = (event) => {
       const message = JSON.parse(event.data);
       console.log('Received from server:', message);
@@ -104,6 +135,49 @@ function App() {
         setCurrentView('mainApp');
       } else if (message.action === 'project_saved' && message.status === 'success') {
         setIsSaving(false);
+      } else if (message.action === 'template_saved' && message.status === 'success') {
+        alert(`Template '${message.payload.templateName}' saved successfully!`);
+        if (message.payload.templateType === 'script') {
+          setSelectedTemplateName(message.payload.templateName);
+          websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'script' } }));
+        } else if (message.payload.templateType === 'art_direction') {
+          setSelectedArtDirectionTemplateName(message.payload.templateName);
+          websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'art_direction' } }));
+        } else if (message.payload.templateType === 'image_generation') {
+          setSelectedImageGenTemplateName(message.payload.templateName);
+          websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
+        }
+      } else if (message.action === 'template_list' && message.status === 'success') {
+        if (message.payload.templateType === 'script') {
+          setTemplateList(message.payload.templates);
+          if (!selectedTemplateName && message.payload.templates.length > 0) {
+            handleLoadTemplate(message.payload.templates[0], 'script');
+          }
+        } else if (message.payload.templateType === 'art_direction') {
+          setArtDirectionTemplateList(message.payload.templates);
+          if (!selectedArtDirectionTemplateName && message.payload.templates.length > 0) {
+            handleLoadTemplate(message.payload.templates[0], 'art_direction');
+          }
+        } else if (message.payload.templateType === 'image_generation') {
+          setImageGenTemplateList(message.payload.templates);
+          if (!selectedImageGenTemplateName && message.payload.templates.length > 0) {
+            handleLoadTemplate(message.payload.templates[0], 'image_generation');
+          }
+        }
+      } else if (message.action === 'template_loaded' && message.status === 'success') {
+        if (message.payload.templateType === 'script') {
+          setPromptTemplate(message.payload.templateContent);
+          setSelectedTemplateName(message.payload.templateName);
+          setShowTemplateList(false);
+        } else if (message.payload.templateType === 'art_direction') {
+          setArtDirectionPromptTemplate(message.payload.templateContent);
+          setSelectedArtDirectionTemplateName(message.payload.templateName);
+          setShowArtDirectionTemplateList(false);
+        } else if (message.payload.templateType === 'image_generation') {
+          setImageGenPromptTemplate(message.payload.templateContent);
+          setSelectedImageGenTemplateName(message.payload.templateName);
+          setShowImageGenTemplateList(false);
+        }
       } else if (message.action === 'image_saved_to_project' && message.status === 'success') {
         const { externalImageUrl, localImageUrl } = message.payload;
         const newScripts = scriptResponse.map(shot => {
@@ -122,7 +196,7 @@ function App() {
     return () => {
       if (websocket.current) websocket.current.close();
     };
-  }, [scriptResponse]);
+  }, [scriptResponse, selectedTemplateName, selectedArtDirectionTemplateName, selectedImageGenTemplateName]); // Add dependencies
 
   useEffect(() => {
     if (project) debouncedSaveProject(project);
@@ -154,6 +228,38 @@ function App() {
   const handleSelectProject = (projectName) => {
     if (websocket.current) {
       websocket.current.send(JSON.stringify({ action: 'load_project', payload: { projectName } }));
+    }
+  };
+
+  const handleSaveTemplate = (templateType) => {
+    const templateName = prompt(`Please enter a name for your ${templateType} template:`);
+    if (templateName && websocket.current) {
+      const templateContent = templateType === 'script' ? promptTemplate : artDirectionPromptTemplate;
+      websocket.current.send(JSON.stringify({
+        action: 'save_template',
+        payload: {
+          templateName: templateName,
+          templateContent: templateContent,
+          templateType: templateType
+        }
+      }));
+    }
+  };
+
+  const handleOpenTemplate = (templateType) => {
+    if (websocket.current) {
+      websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType } }));
+    }
+    if (templateType === 'script') {
+      setShowTemplateList(s => !s);
+    } else if (templateType === 'art_direction') {
+      setShowArtDirectionTemplateList(s => !s);
+    }
+  };
+
+  const handleLoadTemplate = (templateName, templateType) => {
+    if (websocket.current) {
+      websocket.current.send(JSON.stringify({ action: 'load_template', payload: { templateName, templateType } }));
     }
   };
 
@@ -270,14 +376,20 @@ function App() {
       setProject(p => ({ ...p, artDirection: { rawResponse: data } }));
       setArtDirectionResponse(formatN8NResponseForDisplay(data));
     };
+
     if (artDirectionImage) {
       const formData = new FormData();
-      formData.append('videoIdea', artDirectionIdea);
+      formData.append('artDirectionPromptTemplate', artDirectionPromptTemplate);
+      formData.append('artDirectionIdea', artDirectionIdea);
       formData.append('script', scriptText);
       formData.append('image', artDirectionImage);
       handleSendFormDataToN8N(n8nWebhookUrl, formData, processResponse);
     } else {
-      handleSendIdeaToN8N(n8nWebhookUrl, { videoIdea: artDirectionIdea, script: scriptText }, processResponse);
+      handleSendIdeaToN8N(n8nWebhookUrl, { 
+        artDirectionPromptTemplate: artDirectionPromptTemplate,
+        artDirectionIdea: artDirectionIdea, 
+        script: scriptText 
+      }, processResponse);
     }
   };
 
@@ -365,20 +477,68 @@ function App() {
             <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <div style={{ width: '100%', marginBottom: '20px' }}>
                 <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generate AI Content</h3>
+                
+                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt</h5>
+                {selectedTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedTemplateName}</p>}
+                {!selectedTemplateName && templateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
+                <button onClick={() => setShowTemplateEditor(!showTemplateEditor)}>choose template</button>
+                {showTemplateEditor && (
+                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
+                    <textarea 
+                      value={promptTemplate} 
+                      onChange={(e) => setPromptTemplate(e.target.value)} 
+                      rows="6" 
+                      style={{width: '100%', marginBottom: '10px'}} 
+                    />
+                    <button onClick={() => handleSaveTemplate('script')}>Save Template</button>
+                    <button onClick={() => handleOpenTemplate('script')} style={{marginLeft: '10px'}}>Open Template</button>
+                    {showTemplateList && (
+                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                        <h4>Select a Template</h4>
+                        {templateList.length > 0 ? (
+                          templateList.map(name => (
+                            <button 
+                              key={name} 
+                              onClick={() => handleLoadTemplate(name, 'script')} 
+                              style={{
+                                marginRight: '5px', 
+                                marginBottom: '5px',
+                                backgroundColor: name === selectedTemplateName ? '#007bff' : '#f0f0f0',
+                                color: name === selectedTemplateName ? 'white' : '#333'
+                              }}
+                            >
+                              {name}
+                            </button>
+                          ))
+                        ) : (
+                          <p>No templates available.</p>
+                        )}
+                        <button onClick={() => setShowTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <h5 style={{textAlign: 'left', marginTop: '20px', marginBottom: '10px'}}>Idea for the script:</h5>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
                   <textarea value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} placeholder="Enter video idea" disabled={isLoading} rows="4" style={{ flexGrow: 1 }} />
-                  <button onClick={() => handleSendIdeaToN8N(WEBHOOK_URLS[environment].script, { videoIdea }, (data) => {
-                    let allShots = [];
-                    if (data && data[0]) {
-                      Object.values(data[0]).forEach(section => {
-                        if (Array.isArray(section)) {
-                          allShots.push(...section.map(shot => ({ id: `shot-${shot.shot_number}`, script: shot.action_shot, imageUrls: [], selectedImageUrl: '' })));
-                        }
-                      });
-                    }
-                    setScriptResponse(allShots);
-                    setProject(p => ({ ...p, idea: videoIdea, shots: allShots }));
-                  })} disabled={isLoading}>{isLoading ? 'Generating...' : 'Generate'}</button>
+                  <button onClick={() => {
+                    handleSendIdeaToN8N(WEBHOOK_URLS[environment].script, { 
+                      promptTemplate: promptTemplate,
+                      videoIdea: videoIdea 
+                    }, (data) => {
+                      let allShots = [];
+                      if (data && data[0]) {
+                        Object.values(data[0]).forEach(section => {
+                          if (Array.isArray(section)) {
+                            allShots.push(...section.map(shot => ({ id: `shot-${shot.shot_number}`, script: shot.action_shot, imageUrls: [], selectedImageUrl: '' })));
+                          }
+                        });
+                      }
+                      setScriptResponse(allShots);
+                      setProject(p => ({ ...p, idea: videoIdea, shots: allShots }));
+                    })
+                  }} disabled={isLoading}>{isLoading ? 'Generating...' : 'Generate'}</button>
                 </div>
               </div>
               {isLoading && <p>Loading script from n8n...</p>}
@@ -402,7 +562,49 @@ function App() {
             <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <div style={{ width: '100%', marginBottom: '20px' }}>
                 <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generate AI Content</h3>
-                <div style={{ marginBottom: '15px' }}>
+                
+                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt for Art Direction</h5>
+                {selectedArtDirectionTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedArtDirectionTemplateName}</p>}
+                {!selectedArtDirectionTemplateName && artDirectionTemplateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
+                <button onClick={() => setShowArtDirectionTemplateEditor(!showArtDirectionTemplateEditor)}>choose template</button>
+                {showArtDirectionTemplateEditor && (
+                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
+                    <textarea 
+                      value={artDirectionPromptTemplate} 
+                      onChange={(e) => setArtDirectionPromptTemplate(e.target.value)} 
+                      rows="6" 
+                      style={{width: '100%', marginBottom: '10px'}} 
+                    />
+                    <button onClick={() => handleSaveTemplate('art_direction')}>Save Template</button>
+                    <button onClick={() => handleOpenTemplate('art_direction')} style={{marginLeft: '10px'}}>Open Template</button>
+                    {showArtDirectionTemplateList && (
+                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                        <h4>Select a Template</h4>
+                        {artDirectionTemplateList.length > 0 ? (
+                          artDirectionTemplateList.map(name => (
+                            <button 
+                              key={name} 
+                              onClick={() => handleLoadTemplate(name, 'art_direction')} 
+                              style={{
+                                marginRight: '5px', 
+                                marginBottom: '5px',
+                                backgroundColor: name === selectedArtDirectionTemplateName ? '#007bff' : '#f0f0f0',
+                                color: name === selectedArtDirectionTemplateName ? 'white' : '#333'
+                              }}
+                            >
+                              {name}
+                            </button>
+                          ))
+                        ) : (
+                          <p>No templates available.</p>
+                        )}
+                        <button onClick={() => setShowArtDirectionTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ marginTop: '20px', marginBottom: '15px' }}>
                   <h5 style={{textAlign: 'left'}}>Script:</h5>
                   <div style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', background: '#f8f9fa', maxHeight: '150px', overflowY: 'auto' }}>
                     {scriptResponse.map(shot => <p key={shot.id} style={{ margin: 0 }}>{shot.script}</p>)}
@@ -427,7 +629,49 @@ function App() {
             <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <div style={{ width: '100%', marginBottom: '20px' }}>
                 <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Image Generation</h3>
-                <h5 style={{textAlign: 'left'}}>Image Reference URL:</h5>
+
+                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt for Image Generation</h5>
+                {selectedImageGenTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedImageGenTemplateName}</p>}
+                {!selectedImageGenTemplateName && imageGenTemplateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
+                <button onClick={() => setShowImageGenTemplateEditor(!showImageGenTemplateEditor)}>choose template</button>
+                {showImageGenTemplateEditor && (
+                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
+                    <textarea 
+                      value={imageGenPromptTemplate} 
+                      onChange={(e) => setImageGenPromptTemplate(e.target.value)} 
+                      rows="6" 
+                      style={{width: '100%', marginBottom: '10px'}} 
+                    />
+                    <button onClick={() => handleSaveTemplate('image_generation')}>Save Template</button>
+                    <button onClick={() => handleOpenTemplate('image_generation')} style={{marginLeft: '10px'}}>Open Template</button>
+                    {showImageGenTemplateList && (
+                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                        <h4>Select a Template</h4>
+                        {imageGenTemplateList.length > 0 ? (
+                          imageGenTemplateList.map(name => (
+                            <button 
+                              key={name} 
+                              onClick={() => handleLoadTemplate(name, 'image_generation')} 
+                              style={{
+                                marginRight: '5px', 
+                                marginBottom: '5px',
+                                backgroundColor: name === selectedImageGenTemplateName ? '#007bff' : '#f0f0f0',
+                                color: name === selectedImageGenTemplateName ? 'white' : '#333'
+                              }}
+                            >
+                              {name}
+                            </button>
+                          ))
+                        ) : (
+                          <p>No templates available.</p>
+                        )}
+                        <button onClick={() => setShowImageGenTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <h5 style={{textAlign: 'left', marginTop: '20px'}}>Image Reference URL:</h5>
                 <input type="text" placeholder="Enter image URL" value={imageGenUrl} onChange={handleImageGenUrlChange} style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', marginBottom: '20px' }} />
                 <ImageGenerationTable
                   key={environment}
@@ -437,6 +681,18 @@ function App() {
                   artDirectionText={artDirectionResponse}
                   imageGenUrl={imageGenUrl}
                   webhookUrl={WEBHOOK_URLS[environment].imageGen}
+                  imageGenPromptTemplate={imageGenPromptTemplate}
+                />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 3 && (
+            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div style={{ width: '100%', marginBottom: '20px' }}>
+                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Video Generation</h3>
+                <VideoGenerationTable
+                  shots={scriptResponse}
                 />
               </div>
             </div>
