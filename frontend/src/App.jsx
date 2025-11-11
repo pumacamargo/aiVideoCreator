@@ -11,12 +11,16 @@ const WEBHOOK_URLS = {
   test: {
     script: 'https://n8n.lemonsushi.com/webhook-test/scriptIdea',
     artDirection: 'https://n8n.lemonsushi.com/webhook-test/artdirection',
-    imageGen: 'https://n8n.lemonsushi.com/webhook-test/imageGen',
+    imageGen: 'https://n8n.lemonsushi.com/webhook-test/ImageGenFromPrompt',
+    promptGen: 'https://n8n.lemonsushi.com/webhook-test/promptImageGen',
+    videoPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompVideoGen', // Added
   },
   production: {
     script: 'https://n8n.lemonsushi.com/webhook/scriptIdea',
     artDirection: 'https://n8n.lemonsushi.com/webhook/artdirection',
-    imageGen: 'https://n8n.lemonsushi.com/webhook/imageGen',
+    imageGen: 'https://n8n.lemonsushi.com/webhook/ImageGenFromPrompt',
+    promptGen: 'https://n8n.lemonsushi.com/webhook/promptImageGen',
+    videoPromptGen: 'https://n8n.lemonsushi.com/webhook/prompVideoGen', // Added
   }
 };
 
@@ -55,6 +59,13 @@ function App() {
   const [selectedImageGenTemplateName, setSelectedImageGenTemplateName] = useState(null);
   const [imageGenTemplateList, setImageGenTemplateList] = useState([]);
   const [showImageGenTemplateList, setShowImageGenTemplateList] = useState(false);
+
+  // State for Video Generation Templates
+  const [videoGenPromptTemplate, setVideoGenPromptTemplate] = useState('Generate a video based on the following script shot: {{script}}. Art direction: {{artDirection}}. Image prompt: {{imagePrompt}}');
+  const [showVideoGenTemplateEditor, setShowVideoGenTemplateEditor] = useState(false);
+  const [selectedVideoGenTemplateName, setSelectedVideoGenTemplateName] = useState(null);
+  const [videoGenTemplateList, setVideoGenTemplateList] = useState([]);
+  const [showVideoGenTemplateList, setShowVideoGenTemplateList] = useState(false);
 
   const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Trimming', 'Render'];
   const websocket = useRef(null);
@@ -98,6 +109,7 @@ function App() {
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'script' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'art_direction' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
+      websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
     }
   }, [currentView]);
 
@@ -146,6 +158,9 @@ function App() {
         } else if (message.payload.templateType === 'image_generation') {
           setSelectedImageGenTemplateName(message.payload.templateName);
           websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
+        } else if (message.payload.templateType === 'video_generation') {
+          setSelectedVideoGenTemplateName(message.payload.templateName);
+          websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
         }
       } else if (message.action === 'template_list' && message.status === 'success') {
         if (message.payload.templateType === 'script') {
@@ -163,6 +178,11 @@ function App() {
           if (!selectedImageGenTemplateName && message.payload.templates.length > 0) {
             handleLoadTemplate(message.payload.templates[0], 'image_generation');
           }
+        } else if (message.payload.templateType === 'video_generation') {
+          setVideoGenTemplateList(message.payload.templates);
+          if (!selectedVideoGenTemplateName && message.payload.templates.length > 0) {
+            handleLoadTemplate(message.payload.templates[0], 'video_generation');
+          }
         }
       } else if (message.action === 'template_loaded' && message.status === 'success') {
         if (message.payload.templateType === 'script') {
@@ -177,6 +197,10 @@ function App() {
           setImageGenPromptTemplate(message.payload.templateContent);
           setSelectedImageGenTemplateName(message.payload.templateName);
           setShowImageGenTemplateList(false);
+        } else if (message.payload.templateType === 'video_generation') {
+          setVideoGenPromptTemplate(message.payload.templateContent);
+          setSelectedVideoGenTemplateName(message.payload.templateName);
+          setShowVideoGenTemplateList(false);
         }
       } else if (message.action === 'image_saved_to_project' && message.status === 'success') {
         const { externalImageUrl, localImageUrl } = message.payload;
@@ -234,7 +258,16 @@ function App() {
   const handleSaveTemplate = (templateType) => {
     const templateName = prompt(`Please enter a name for your ${templateType} template:`);
     if (templateName && websocket.current) {
-      const templateContent = templateType === 'script' ? promptTemplate : artDirectionPromptTemplate;
+      let templateContent;
+      if (templateType === 'script') {
+        templateContent = promptTemplate;
+      } else if (templateType === 'art_direction') {
+        templateContent = artDirectionPromptTemplate;
+      } else if (templateType === 'image_generation') {
+        templateContent = imageGenPromptTemplate;
+      } else if (templateType === 'video_generation') {
+        templateContent = videoGenPromptTemplate;
+      }
       websocket.current.send(JSON.stringify({
         action: 'save_template',
         payload: {
@@ -254,6 +287,10 @@ function App() {
       setShowTemplateList(s => !s);
     } else if (templateType === 'art_direction') {
       setShowArtDirectionTemplateList(s => !s);
+    } else if (templateType === 'image_generation') {
+      setShowImageGenTemplateList(s => !s);
+    } else if (templateType === 'video_generation') {
+      setShowVideoGenTemplateList(s => !s);
     }
   };
 
@@ -418,6 +455,22 @@ function App() {
   const handleSetSelectedImage = (shotId, imageUrl) => {
     const updatedScripts = scriptResponse.map(s => 
       s.id === shotId ? { ...s, selectedImageUrl: imageUrl } : s
+    );
+    setScriptResponse(updatedScripts);
+    setProject(p => ({ ...p, shots: updatedScripts }));
+  };
+
+  const handleShotPromptChange = (shotId, newPrompt) => {
+    const updatedScripts = scriptResponse.map(s => 
+      s.id === shotId ? { ...s, prompt: newPrompt } : s
+    );
+    setScriptResponse(updatedScripts);
+    setProject(p => ({ ...p, shots: updatedScripts }));
+  };
+
+  const handleVideoPromptChange = (shotId, newVideoPrompt) => {
+    const updatedScripts = scriptResponse.map(s => 
+      s.id === shotId ? { ...s, videoPrompt: newVideoPrompt } : s
     );
     setScriptResponse(updatedScripts);
     setProject(p => ({ ...p, shots: updatedScripts }));
@@ -682,6 +735,8 @@ function App() {
                   imageGenUrl={imageGenUrl}
                   webhookUrl={WEBHOOK_URLS[environment].imageGen}
                   imageGenPromptTemplate={imageGenPromptTemplate}
+                  promptGenWebhookUrl={WEBHOOK_URLS[environment].promptGen}
+                  onPromptChange={handleShotPromptChange}
                 />
               </div>
             </div>
@@ -691,8 +746,54 @@ function App() {
             <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <div style={{ width: '100%', marginBottom: '20px' }}>
                 <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Video Generation</h3>
+
+                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt for Video Generation</h5>
+                {selectedVideoGenTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedVideoGenTemplateName}</p>}
+                {!selectedVideoGenTemplateName && videoGenTemplateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
+                <button onClick={() => setShowVideoGenTemplateEditor(!showVideoGenTemplateEditor)}>choose template</button>
+                {showVideoGenTemplateEditor && (
+                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
+                    <textarea 
+                      value={videoGenPromptTemplate} 
+                      onChange={(e) => setVideoGenPromptTemplate(e.target.value)} 
+                      rows="6" 
+                      style={{width: '100%', marginBottom: '10px'}} 
+                    />
+                    <button onClick={() => handleSaveTemplate('video_generation')}>Save Template</button>
+                    <button onClick={() => handleOpenTemplate('video_generation')} style={{marginLeft: '10px'}}>Open Template</button>
+                    {showVideoGenTemplateList && (
+                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                        <h4>Select a Template</h4>
+                        {videoGenTemplateList.length > 0 ? (
+                          videoGenTemplateList.map(name => (
+                            <button 
+                              key={name} 
+                              onClick={() => handleLoadTemplate(name, 'video_generation')} 
+                              style={{
+                                marginRight: '5px', 
+                                marginBottom: '5px',
+                                backgroundColor: name === selectedVideoGenTemplateName ? '#007bff' : '#f0f0f0',
+                                color: name === selectedVideoGenTemplateName ? 'white' : '#333'
+                              }}
+                            >
+                              {name}
+                            </button>
+                          ))
+                        ) : (
+                          <p>No templates available.</p>
+                        )}
+                        <button onClick={() => setShowVideoGenTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <VideoGenerationTable
                   shots={scriptResponse}
+                  videoGenPromptTemplate={videoGenPromptTemplate}
+                  videoPromptGenWebhookUrl={WEBHOOK_URLS[environment].videoPromptGen}
+                  artDirectionText={artDirectionResponse} // Needed for payload
+                  onVideoPromptChange={handleVideoPromptChange}
                 />
               </div>
             </div>

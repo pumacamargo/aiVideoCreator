@@ -12,14 +12,14 @@ const tableStyle = {
 };
 
 const thStyle = {
-  border: '1px solid #ddd',
+  border: '1px solid #999',
   padding: '8px',
   textAlign: 'left',
   backgroundColor: '#f2f2f2',
 };
 
 const tdStyle = {
-  border: '1px solid #ddd',
+  border: '1px solid #999',
   padding: '8px',
   textAlign: 'left',
   verticalAlign: 'middle',
@@ -58,16 +58,54 @@ const buttonStyle = {
   cursor: 'pointer',
 };
 
-export function VideoGenerationTable({ shots }) {
+export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromptGenWebhookUrl, artDirectionText, onVideoPromptChange }) {
   const [loadingShotId, setLoadingShotId] = useState(null);
-  // Placeholder state for video carousel
   const [shotForVideoCarousel, setShotForVideoCarousel] = useState(null);
+  const [generatingVideoPromptShotId, setGeneratingVideoPromptShotId] = useState(null);
+  const [editingVideoPromptId, setEditingVideoPromptId] = useState(null);
+
+  const handleGenerateVideoPrompt = async (shot) => {
+    if (!videoPromptGenWebhookUrl) {
+      alert('Please enter a Video Prompt Generation Webhook URL.');
+      return;
+    }
+    setGeneratingVideoPromptShotId(shot.id);
+    try {
+      const payload = {
+        script: shot.script,
+        promptTemplate: videoGenPromptTemplate,
+        artDirection: artDirectionText,
+        imagePrompt: shot.prompt, // Assuming shot.prompt holds the image prompt
+      };
+      const response = await fetch(videoPromptGenWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        const responseData = await response.json();
+        let generatedPrompt = '';
+        if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
+          generatedPrompt = responseData[0].output;
+        } else {
+          // Fallback if the expected structure is not found
+          generatedPrompt = JSON.stringify(responseData, null, 2);
+        }
+        onVideoPromptChange(shot.id, generatedPrompt);
+      } else {
+        alert('Failed to generate video prompt. Check console for details.');
+      }
+    } catch (error) {
+      alert('Error generating video prompt. Check console for details.');
+      console.error('Error generating video prompt:', error);
+    } finally {
+      setGeneratingVideoPromptShotId(null);
+    }
+  };
 
   const handleGenerateVideo = async (shot) => {
-    // Placeholder function
     console.log('Generating video for shot:', shot.id);
     setLoadingShotId(shot.id);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
     setLoadingShotId(null);
     alert('Video generation is not implemented yet.');
@@ -93,7 +131,6 @@ export function VideoGenerationTable({ shots }) {
                     alt="Shot visualization"
                     style={imageStyle}
                   />
-                  {/* Placeholder for video count */}
                   {shot.videoUrls && shot.videoUrls.length > 1 && (
                     <div style={videoCountBadgeStyle}>
                       {shot.videoUrls.length}
@@ -101,29 +138,49 @@ export function VideoGenerationTable({ shots }) {
                   )}
                 </div>
               </td>
-              <td style={tdStyle}>{shot.script}</td>
-              <td style={tdStyle}>
-                <button
-                  style={buttonStyle}
-                  onClick={() => handleGenerateVideo(shot)}
-                  disabled={loadingShotId === shot.id}
-                >
-                  {loadingShotId === shot.id ? 'Generating...' : 'Generate AI Video'}
-                </button>
+              <td style={{...tdStyle, padding: '0'}}>
+                <div style={{ height: '80px', borderBottom: '1px dashed #ccc', padding: '8px', overflowY: 'auto' }}>{shot.script}</div>
+                <div style={{ height: '80px', padding: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <textarea
+                    placeholder="Edit your video prompt or Generate Prompt with AI"
+                    style={{ flex: 1, height: '100%', border: 'none', resize: 'none', outline: 'none', backgroundColor: editingVideoPromptId === shot.id ? '#fff' : '#f4f4f4' }}
+                    value={shot.videoPrompt || ''}
+                    onChange={(e) => onVideoPromptChange(shot.id, e.target.value)}
+                    readOnly={editingVideoPromptId !== shot.id}
+                  />
+                  <button 
+                    style={{...buttonStyle, padding: '5px 10px', fontSize: '0.8rem'}}
+                    onClick={() => setEditingVideoPromptId(editingVideoPromptId === shot.id ? null : shot.id)}
+                  >
+                    {editingVideoPromptId === shot.id ? 'Save' : 'Edit'}
+                  </button>
+                </div>
+              </td>
+              <td style={{...tdStyle, padding: '0'}}>
+                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px dashed #ccc' }}>
+                  <button
+                    style={{...buttonStyle, width: '90%'}}
+                    onClick={() => handleGenerateVideoPrompt(shot)}
+                    disabled={generatingVideoPromptShotId === shot.id}
+                  >
+                    {generatingVideoPromptShotId === shot.id ? 'Generating...' : 'Generate Prompt'}
+                  </button>
+                </div>
+                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button
+                    style={{...buttonStyle, width: '90%'}}
+                    onClick={() => handleGenerateVideo(shot)}
+                    disabled={loadingShotId === shot.id}
+                  >
+                    {loadingShotId === shot.id ? 'Generating...' : 'Generate AI Video'}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       {/* Placeholder for VideoCarouselModal */}
-      {/* {shotForVideoCarousel && (
-        <VideoCarouselModal
-          videoUrls={shotForVideoCarousel.videoUrls}
-          initialVideoUrl={shotForVideoCarousel.selectedVideoUrl}
-          onClose={() => setShotForVideoCarousel(null)}
-          onSetSelected={handleSetSelectedVideo}
-        />
-      )} */}
     </>
   );
 }

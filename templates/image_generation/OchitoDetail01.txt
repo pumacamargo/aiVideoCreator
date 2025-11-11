@@ -1,0 +1,1 @@
+Generate an art direction based on the following script: {{script}}. Additional guidance: {{artDirectionIdea}}

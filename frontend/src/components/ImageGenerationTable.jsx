@@ -10,14 +10,14 @@ const tableStyle = {
 };
 
 const thStyle = {
-  border: '1px solid #ddd',
+  border: '1px solid #999',
   padding: '8px',
   textAlign: 'left',
   backgroundColor: '#f2f2f2',
 };
 
 const tdStyle = {
-  border: '1px solid #ddd',
+  border: '1px solid #999',
   padding: '8px',
   textAlign: 'left',
   verticalAlign: 'middle',
@@ -56,11 +56,57 @@ const buttonStyle = {
   cursor: 'pointer',
 };
 
-export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate }) {
+export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange }) {
   const [loadingShotId, setLoadingShotId] = useState(null);
   const [shotForCarousel, setShotForCarousel] = useState(null);
+  const [generatingPromptShotId, setGeneratingPromptShotId] = useState(null);
+  const [editingPromptId, setEditingPromptId] = useState(null);
+
+  const handleGeneratePrompt = async (shot) => {
+    if (!promptGenWebhookUrl) {
+      alert('Please enter a Prompt Generation Webhook URL.');
+      return;
+    }
+    setGeneratingPromptShotId(shot.id);
+    try {
+      const payload = {
+        script: shot.script,
+        promptTemplate: imageGenPromptTemplate,
+        artDirection: artDirectionText,
+        image: imageGenUrl,
+      };
+      const response = await fetch(promptGenWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        const responseData = await response.json();
+        let generatedPrompt = '';
+        if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
+          generatedPrompt = responseData[0].output;
+        } else {
+          // Fallback if the expected structure is not found
+          generatedPrompt = JSON.stringify(responseData, null, 2);
+        }
+        onPromptChange(shot.id, generatedPrompt);
+      } else {
+        alert('Failed to generate prompt. Check console for details.');
+      }
+    } catch (error) {
+      alert('Error generating prompt. Check console for details.');
+      console.error('Error generating prompt:', error);
+    } finally {
+      setGeneratingPromptShotId(null);
+    }
+  };
 
   const handleGenerateImage = async (shot) => {
+    const promptText = shot.prompt;
+    if (!promptText) {
+      alert('Please generate or enter a prompt for this shot first.');
+      return;
+    }
     if (!imageGenUrl) {
       alert('Please enter an image reference URL before generating an image.');
       return;
@@ -68,9 +114,7 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
     setLoadingShotId(shot.id);
     try {
       const payload = { 
-        promptTemplate: imageGenPromptTemplate,
-        script: shot.script, 
-        artDirection: artDirectionText, 
+        prompt: promptText,
         image: imageGenUrl 
       };
       const response = await fetch(webhookUrl, {
@@ -139,15 +183,43 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
                   )}
                 </div>
               </td>
-              <td style={tdStyle}>{shot.script}</td>
-              <td style={tdStyle}>
-                <button
-                  style={buttonStyle}
-                  onClick={() => handleGenerateImage(shot)}
-                  disabled={loadingShotId === shot.id}
-                >
-                  {loadingShotId === shot.id ? 'Generating...' : 'Generate AI Image'}
-                </button>
+              <td style={{...tdStyle, padding: '0'}}>
+                <div style={{ height: '80px', borderBottom: '1px dashed #ccc', padding: '8px', overflowY: 'auto' }}>{shot.script}</div>
+                <div style={{ height: '80px', padding: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <textarea
+                    placeholder="Edit your image prompt or Generate Prompt with AI"
+                    style={{ flex: 1, height: '100%', border: 'none', resize: 'none', outline: 'none', backgroundColor: editingPromptId === shot.id ? '#fff' : '#f4f4f4' }}
+                    value={shot.prompt || ''}
+                    onChange={(e) => onPromptChange(shot.id, e.target.value)}
+                    readOnly={editingPromptId !== shot.id}
+                  />
+                  <button 
+                    style={{...buttonStyle, padding: '5px 10px', fontSize: '0.8rem'}}
+                    onClick={() => setEditingPromptId(editingPromptId === shot.id ? null : shot.id)}
+                  >
+                    {editingPromptId === shot.id ? 'Save' : 'Edit'}
+                  </button>
+                </div>
+              </td>
+              <td style={{...tdStyle, padding: '0'}}>
+                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px dashed #ccc' }}>
+                  <button
+                    style={{...buttonStyle, width: '90%'}}
+                    onClick={() => handleGeneratePrompt(shot)}
+                    disabled={generatingPromptShotId === shot.id}
+                  >
+                    {generatingPromptShotId === shot.id ? 'Generating...' : 'Generate Prompt'}
+                  </button>
+                </div>
+                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button
+                    style={{...buttonStyle, width: '90%'}}
+                    onClick={() => handleGenerateImage(shot)}
+                    disabled={loadingShotId === shot.id}
+                  >
+                    {loadingShotId === shot.id ? 'Generating...' : 'Generate AI Image'}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
