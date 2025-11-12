@@ -13,14 +13,16 @@ const WEBHOOK_URLS = {
     artDirection: 'https://n8n.lemonsushi.com/webhook-test/artdirection',
     imageGen: 'https://n8n.lemonsushi.com/webhook-test/ImageGenFromPrompt',
     promptGen: 'https://n8n.lemonsushi.com/webhook-test/promptImageGen',
-    videoPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompVideoGen', // Added
+    videoPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompVideoGen',
+    videoGen: 'https://n8n.lemonsushi.com/webhook-test/VideoGenFromPrompt',
   },
   production: {
     script: 'https://n8n.lemonsushi.com/webhook/scriptIdea',
     artDirection: 'https://n8n.lemonsushi.com/webhook/artdirection',
     imageGen: 'https://n8n.lemonsushi.com/webhook/ImageGenFromPrompt',
     promptGen: 'https://n8n.lemonsushi.com/webhook/promptImageGen',
-    videoPromptGen: 'https://n8n.lemonsushi.com/webhook/prompVideoGen', // Added
+    videoPromptGen: 'https://n8n.lemonsushi.com/webhook/prompVideoGen',
+    videoGen: 'https://n8n.lemonsushi.com/webhook/VideoGenFromPrompt',
   }
 };
 
@@ -67,7 +69,7 @@ function App() {
   const [videoGenTemplateList, setVideoGenTemplateList] = useState([]);
   const [showVideoGenTemplateList, setShowVideoGenTemplateList] = useState(false);
 
-  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Trimming', 'Render'];
+  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation'];
   const websocket = useRef(null);
 
   const debounce = (func, delay) => {
@@ -476,6 +478,36 @@ function App() {
     setProject(p => ({ ...p, shots: updatedScripts }));
   };
 
+  const handleNewVideoFromAI = (shotId, newVideoUrl) => {
+    const updatedScripts = scriptResponse.map(s => {
+      if (s.id === shotId) {
+        const newVideoUrls = [...(s.videoUrls || []), newVideoUrl];
+        return { ...s, videoUrls: newVideoUrls, selectedVideoUrl: newVideoUrl };
+      }
+      return s;
+    });
+    setScriptResponse(updatedScripts);
+    setProject(p => ({ ...p, shots: updatedScripts }));
+
+    if (websocket.current && project) {
+      websocket.current.send(JSON.stringify({
+        action: 'save_video_to_project',
+        payload: {
+          projectName: project.projectName,
+          externalVideoUrl: newVideoUrl,
+        }
+      }));
+    }
+  };
+
+  const handleSetSelectedVideo = (shotId, videoUrl) => {
+    const updatedScripts = scriptResponse.map(s => 
+      s.id === shotId ? { ...s, selectedVideoUrl: videoUrl } : s
+    );
+    setScriptResponse(updatedScripts);
+    setProject(p => ({ ...p, shots: updatedScripts }));
+  };
+
   const toggleEnvironment = () => {
     setEnvironment(env => (env === 'production' ? 'test' : 'production'));
   };
@@ -792,8 +824,11 @@ function App() {
                   shots={scriptResponse}
                   videoGenPromptTemplate={videoGenPromptTemplate}
                   videoPromptGenWebhookUrl={WEBHOOK_URLS[environment].videoPromptGen}
+                  videoGenWebhookUrl={WEBHOOK_URLS[environment].videoGen}
                   artDirectionText={artDirectionResponse} // Needed for payload
                   onVideoPromptChange={handleVideoPromptChange}
+                  onNewVideoFromAI={handleNewVideoFromAI}
+                  onSetSelectedVideo={handleSetSelectedVideo}
                 />
               </div>
             </div>
