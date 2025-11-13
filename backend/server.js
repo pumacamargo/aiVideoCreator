@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const ffmpeg = require('fluent-ffmpeg');
+const cors = require('cors');
 
 const app = express();
 const port = 3001;
@@ -14,6 +15,7 @@ const templatesDir = path.join(__dirname, '..', 'templates');
 const rendersDir = path.join(__dirname, '..', 'renders');
 
 // Middleware
+app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb' }));
 
