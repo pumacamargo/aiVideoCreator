@@ -15,6 +15,7 @@ const WEBHOOK_URLS = {
     promptGen: 'https://n8n.lemonsushi.com/webhook-test/promptImageGen',
     videoPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompVideoGen',
     videoGen: 'https://n8n.lemonsushi.com/webhook-test/VideoGenFromPrompt',
+    render: 'http://localhost:3001/render',
   },
   production: {
     script: 'https://n8n.lemonsushi.com/webhook/scriptIdea',
@@ -23,6 +24,7 @@ const WEBHOOK_URLS = {
     promptGen: 'https://n8n.lemonsushi.com/webhook/promptImageGen',
     videoPromptGen: 'https://n8n.lemonsushi.com/webhook/prompVideoGen',
     videoGen: 'https://n8n.lemonsushi.com/webhook/VideoGenFromPrompt',
+    render: 'http://localhost:3001/render',
   }
 };
 
@@ -69,7 +71,12 @@ function App() {
   const [videoGenTemplateList, setVideoGenTemplateList] = useState([]);
   const [showVideoGenTemplateList, setShowVideoGenTemplateList] = useState(false);
 
-  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation'];
+  // State for Render Section
+  const [isRendering, setIsRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [renderedVideoUrl, setRenderedVideoUrl] = useState(null);
+
+  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Render'];
   const websocket = useRef(null);
 
   const debounce = (func, delay) => {
@@ -501,11 +508,62 @@ function App() {
   };
 
   const handleSetSelectedVideo = (shotId, videoUrl) => {
-    const updatedScripts = scriptResponse.map(s => 
+    const updatedScripts = scriptResponse.map(s =>
       s.id === shotId ? { ...s, selectedVideoUrl: videoUrl } : s
     );
     setScriptResponse(updatedScripts);
     setProject(p => ({ ...p, shots: updatedScripts }));
+  };
+
+  const handleRender = async () => {
+    setIsRendering(true);
+    setRenderProgress(0);
+
+    try {
+      // Prepare render data - filter shots that have video or image
+      const shotsForRender = scriptResponse
+        .filter(shot => shot.selectedVideoUrl || shot.selectedImageUrl)
+        .map(shot => ({
+          id: shot.id,
+          video: shot.selectedVideoUrl || null,
+          image: shot.selectedImageUrl || null,
+        }));
+
+      if (shotsForRender.length === 0) {
+        alert('No videos or images selected to render. Please select at least one video or image.');
+        setIsRendering(false);
+        return;
+      }
+
+      const response = await fetch(WEBHOOK_URLS[environment].render, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shots: shotsForRender,
+          projectName: project?.projectName || 'rendered-video',
+        }),
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        const videoUrl = responseData?.videoUrl || responseData?.data?.videoUrl;
+
+        if (videoUrl) {
+          setRenderedVideoUrl(videoUrl);
+          alert('Video rendered successfully!');
+        } else {
+          alert('Render completed but could not retrieve video URL. Check console for details.');
+          console.log('Render response:', responseData);
+        }
+      } else {
+        alert('Failed to render video. Check console for details.');
+      }
+    } catch (error) {
+      alert('Error rendering video. Check console for details.');
+      console.error('Error rendering video:', error);
+    } finally {
+      setIsRendering(false);
+    }
   };
 
   const toggleEnvironment = () => {
@@ -945,6 +1003,123 @@ function App() {
                   onNewVideoFromAI={handleNewVideoFromAI}
                   onSetSelectedVideo={handleSetSelectedVideo}
                 />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 4 && (
+            <div className="main-container">
+              {/* Render Summary Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Render Final Video</h3>
+                </div>
+
+                <div className="section-content">
+                  <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
+                    Review your shots below. The final video will combine all selected videos and images in order.
+                    Images will be displayed for 5 seconds each.
+                  </p>
+
+                  {/* Shots Summary */}
+                  <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                    <h4 style={{ color: 'var(--color-text-primary)', marginBottom: 'var(--spacing-md)' }}>Shots Summary</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                      {scriptResponse.map((shot, index) => (
+                        <div
+                          key={shot.id}
+                          style={{
+                            padding: 'var(--spacing-md)',
+                            background: 'rgba(45, 53, 72, 0.4)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-md)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                            <span style={{ fontWeight: 'bold', color: 'var(--color-primary)', minWidth: '30px' }}>
+                              #{index + 1}
+                            </span>
+                            <span style={{ flex: 1, color: 'var(--color-text-secondary)' }}>
+                              {shot.script}
+                            </span>
+                            <span
+                              style={{
+                                padding: '4px 12px',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: 'var(--font-size-xs)',
+                                fontWeight: 'bold',
+                                background: shot.selectedVideoUrl
+                                  ? 'rgba(74, 222, 128, 0.3)'
+                                  : shot.selectedImageUrl
+                                  ? 'rgba(251, 191, 36, 0.3)'
+                                  : 'rgba(239, 68, 68, 0.3)',
+                                color: shot.selectedVideoUrl
+                                  ? 'var(--color-success)'
+                                  : shot.selectedImageUrl
+                                  ? 'var(--color-warning)'
+                                  : 'var(--color-error)',
+                              }}
+                            >
+                              {shot.selectedVideoUrl ? 'VIDEO' : shot.selectedImageUrl ? 'IMAGE (5s)' : 'SKIPPED'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Render Button */}
+                  <button
+                    className="primary"
+                    onClick={handleRender}
+                    disabled={isRendering || scriptResponse.length === 0}
+                    style={{ width: '100%', padding: 'var(--spacing-lg)' }}
+                  >
+                    {isRendering ? 'Rendering... ' : 'Render Final Video'}
+                  </button>
+
+                  {/* Rendered Video Result */}
+                  {renderedVideoUrl && (
+                    <div style={{ marginTop: 'var(--spacing-xl)' }}>
+                      <h4 style={{ color: 'var(--color-text-primary)', marginBottom: 'var(--spacing-md)' }}>
+                        Rendered Video
+                      </h4>
+                      <div
+                        style={{
+                          padding: 'var(--spacing-lg)',
+                          background: 'rgba(30, 35, 51, 0.6)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 'var(--radius-lg)',
+                        }}
+                      >
+                        <video
+                          src={renderedVideoUrl}
+                          controls
+                          style={{
+                            width: '100%',
+                            borderRadius: 'var(--radius-md)',
+                            marginBottom: 'var(--spacing-md)',
+                          }}
+                        />
+                        <a
+                          href={renderedVideoUrl}
+                          download
+                          style={{
+                            display: 'inline-block',
+                            padding: '8px 16px',
+                            background: 'var(--color-primary)',
+                            color: 'white',
+                            borderRadius: 'var(--radius-md)',
+                            textDecoration: 'none',
+                            fontSize: 'var(--font-size-sm)',
+                          }}
+                        >
+                          Download Video
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

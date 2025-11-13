@@ -3,27 +3,210 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch'); // Import node-fetch
+const fetch = require('node-fetch');
+const ffmpeg = require('fluent-ffmpeg');
 
 const app = express();
 const port = 3001;
 
 const projectsDir = path.join(__dirname, '..', 'projects');
 const templatesDir = path.join(__dirname, '..', 'templates');
+const rendersDir = path.join(__dirname, '..', 'renders');
 
-// Serve static files from the 'projects' directory
+// Middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb' }));
+
+// Serve static files from the 'projects' and 'renders' directories
 app.use('/projects', express.static(projectsDir));
+app.use('/renders', express.static(rendersDir));
 
-// Ensure the main projects and templates directories exist
+// Ensure the main directories exist
 if (!fs.existsSync(projectsDir)) {
   fs.mkdirSync(projectsDir);
 }
 if (!fs.existsSync(templatesDir)) {
   fs.mkdirSync(templatesDir);
 }
+if (!fs.existsSync(rendersDir)) {
+  fs.mkdirSync(rendersDir);
+}
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
+
+// ========================================
+// RENDER ENDPOINT
+// ========================================
+
+/**
+ * Download file from URL to local disk
+ */
+async function downloadFile(url, filePath) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download ${url}: ${response.statusText}`);
+  }
+  const buffer = await response.buffer();
+  fs.writeFileSync(filePath, buffer);
+}
+
+/**
+ * Create image-to-video clip (5 seconds)
+ */
+function createImageClip(imagePath, outputPath, duration = 5) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(imagePath)
+      .inputOptions([`-loop 1`])
+      .videoCodec('libx264')
+      .fps(30)
+      .size('?x720')
+      .duration(duration)
+      .output(outputPath)
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run();
+  });
+}
+
+/**
+ * Merge multiple video files
+ */
+function mergeVideos(videoPaths, outputPath) {
+  return new Promise((resolve, reject) => {
+    if (videoPaths.length === 0) {
+      return reject(new Error('No videos to merge'));
+    }
+
+    if (videoPaths.length === 1) {
+      // If only one video, just copy it
+      fs.copyFileSync(videoPaths[0], outputPath);
+      return resolve();
+    }
+
+    // Create concat demuxer file
+    const concatFilePath = path.join(rendersDir, `concat_${Date.now()}.txt`);
+    const concatContent = videoPaths
+      .map(videoPath => `file '${videoPath.replace(/\\/g, '/')}'`)
+      .join('\n');
+
+    fs.writeFileSync(concatFilePath, concatContent);
+
+    ffmpeg()
+      .input(concatFilePath)
+      .inputOptions(['-f concat', '-safe 0'])
+      .videoCodec('libx264')
+      .audioCodec('aac')
+      .output(outputPath)
+      .on('end', () => {
+        // Clean up concat file
+        fs.unlinkSync(concatFilePath);
+        resolve();
+      })
+      .on('error', (err) => reject(err))
+      .run();
+  });
+}
+
+/**
+ * POST /render - Combine videos and images into final video
+ */
+app.post('/render', async (req, res) => {
+  try {
+    const { shots, projectName } = req.body;
+
+    if (!shots || !Array.isArray(shots) || shots.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'No shots provided' });
+    }
+
+    console.log(`Starting render for project: ${projectName}`);
+
+    const timestamp = Date.now();
+    const projectRenderDir = path.join(rendersDir, projectName || 'render', timestamp.toString());
+    const tmpDir = path.join(projectRenderDir, 'tmp');
+
+    // Create directories
+    fs.mkdirSync(projectRenderDir, { recursive: true });
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const videoPaths = [];
+    let shotIndex = 0;
+
+    // Process each shot
+    for (const shot of shots) {
+      shotIndex++;
+      const tmpVideoPath = path.join(tmpDir, `shot_${shotIndex}.mp4`);
+
+      if (shot.video) {
+        // Download and use video
+        console.log(`Shot ${shotIndex}: Downloading video from ${shot.video}`);
+        const tmpVideoFile = path.join(tmpDir, `video_${shotIndex}_tmp.mp4`);
+        await downloadFile(shot.video, tmpVideoFile);
+
+        // Copy video with correct codec
+        await new Promise((resolve, reject) => {
+          ffmpeg(tmpVideoFile)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .output(tmpVideoPath)
+            .on('end', () => {
+              fs.unlinkSync(tmpVideoFile);
+              resolve();
+            })
+            .on('error', reject)
+            .run();
+        });
+
+        videoPaths.push(tmpVideoPath);
+      } else if (shot.image) {
+        // Download image and create 5-second clip
+        console.log(`Shot ${shotIndex}: Creating image clip from ${shot.image}`);
+        const tmpImageFile = path.join(tmpDir, `image_${shotIndex}_tmp.jpg`);
+        await downloadFile(shot.image, tmpImageFile);
+
+        await createImageClip(tmpImageFile, tmpVideoPath, 5);
+        fs.unlinkSync(tmpImageFile);
+
+        videoPaths.push(tmpVideoPath);
+      } else {
+        // Skip shot with no video or image
+        console.log(`Shot ${shotIndex}: Skipped (no video or image)`);
+      }
+    }
+
+    if (videoPaths.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'No videos or images to render' });
+    }
+
+    // Merge all videos
+    const finalVideoPath = path.join(projectRenderDir, `${projectName || 'render'}_final.mp4`);
+    console.log(`Merging ${videoPaths.length} video(s)...`);
+    await mergeVideos(videoPaths, finalVideoPath);
+
+    // Clean up tmp directory
+    videoPaths.forEach(p => {
+      try { fs.unlinkSync(p); } catch (e) {}
+    });
+    fs.rmdirSync(tmpDir, { recursive: true });
+
+    const videoUrl = `http://localhost:${port}/renders/${projectName || 'render'}/${timestamp}/${projectName || 'render'}_final.mp4`;
+
+    console.log(`Render completed successfully: ${videoUrl}`);
+    res.json({
+      status: 'success',
+      message: 'Video rendered successfully',
+      videoUrl: videoUrl
+    });
+
+  } catch (error) {
+    console.error('Render error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to render video',
+      error: error.message
+    });
+  }
+});
 
 wss.on('connection', (ws) => {
   console.log('Client connected to WebSocket server');
