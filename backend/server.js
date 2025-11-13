@@ -193,7 +193,7 @@ app.post('/render', async (req, res) => {
     videoPaths.forEach(p => {
       try { fs.unlinkSync(p); } catch (e) {}
     });
-    fs.rmdirSync(tmpDir, { recursive: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
 
     const videoUrl = `http://localhost:${port}/renders/${projectName || 'render'}/${timestamp}/${projectName || 'render'}_final.mp4`;
 
