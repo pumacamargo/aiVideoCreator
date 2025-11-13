@@ -232,6 +232,9 @@ wss.on('connection', (ws) => {
         case 'save_image_to_project':
           await handleSaveImageToProject(ws, parsedMessage.payload);
           break;
+        case 'save_video_to_project':
+          await handleSaveVideoToProject(ws, parsedMessage.payload);
+          break;
         case 'save_template':
           handleSaveTemplate(ws, parsedMessage.payload);
           break;
@@ -358,6 +361,47 @@ async function handleSaveImageToProject(ws, payload) {
   } catch (error) {
     console.error(`Failed to save image to project '${sanitizedProjectName}':`, error);
     ws.send(JSON.stringify({ status: 'error', message: `Failed to save image to project: ${error.message}` }));
+  }
+}
+
+async function handleSaveVideoToProject(ws, payload) {
+  const { projectName, externalVideoUrl } = payload;
+  if (!projectName || !externalVideoUrl) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Project name and external video URL are required to save video.' }));
+  }
+
+  const sanitizedProjectName = projectName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const projectVideosDir = path.join(projectsDir, sanitizedProjectName, 'assets', 'videos');
+
+  try {
+    fs.mkdirSync(projectVideosDir, { recursive: true });
+
+    const response = await fetch(externalVideoUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download video: ${response.statusText}`);
+    }
+
+    const videoBuffer = await response.buffer();
+    const videoFileName = `${Date.now()}_${path.basename(new URL(externalVideoUrl).pathname)}`;
+    const localVideoPath = path.join(projectVideosDir, videoFileName);
+    const relativeVideoPath = path.join('projects', sanitizedProjectName, 'assets', 'videos', videoFileName); // Path accessible from frontend
+
+    fs.writeFileSync(localVideoPath, videoBuffer);
+
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'video_saved_to_project',
+      payload: {
+        projectName: sanitizedProjectName,
+        externalVideoUrl: externalVideoUrl,
+        localVideoUrl: `http://localhost:${port}/${relativeVideoPath.replace(/\\/g, '/')}` // Ensure URL is correct for frontend
+      }
+    }));
+    console.log(`Video saved to project '${sanitizedProjectName}': ${localVideoPath}`);
+
+  } catch (error) {
+    console.error(`Failed to save video to project '${sanitizedProjectName}':`, error);
+    ws.send(JSON.stringify({ status: 'error', message: `Failed to save video to project: ${error.message}` }));
   }
 }
 

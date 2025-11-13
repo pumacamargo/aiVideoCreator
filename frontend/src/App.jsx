@@ -220,6 +220,15 @@ function App() {
         });
         setScriptResponse(newScripts);
         setProject(p => ({ ...p, shots: newScripts }));
+      } else if (message.action === 'video_saved_to_project' && message.status === 'success') {
+        const { externalVideoUrl, localVideoUrl } = message.payload;
+        const newScripts = scriptResponse.map(shot => {
+          const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? localVideoUrl : url);
+          const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? localVideoUrl : shot.selectedVideoUrl;
+          return { ...shot, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+        });
+        setScriptResponse(newScripts);
+        setProject(p => ({ ...p, shots: newScripts }));
       } else if (message.status === 'error') {
         alert(`Error: ${message.message}`);
         setIsSaving(false);
