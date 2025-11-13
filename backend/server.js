@@ -5,7 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 const cors = require('cors');
+
+// Configure fluent-ffmpeg with ffmpeg-static
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
 const port = 3001;
