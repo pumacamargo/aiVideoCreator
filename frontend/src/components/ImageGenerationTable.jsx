@@ -3,59 +3,6 @@ import { ImageCarouselModal } from './ImageCarouselModal';
 
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
-const tableStyle = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  marginTop: '20px',
-};
-
-const thStyle = {
-  border: '1px solid #999',
-  padding: '8px',
-  textAlign: 'left',
-  backgroundColor: '#f2f2f2',
-};
-
-const tdStyle = {
-  border: '1px solid #999',
-  padding: '8px',
-  textAlign: 'left',
-  verticalAlign: 'middle',
-};
-
-const thumbnailContainerStyle = {
-  position: 'relative',
-  width: '150px',
-  height: '100px',
-  cursor: 'pointer',
-};
-
-const imageStyle = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-};
-
-const imageCountBadgeStyle = {
-  position: 'absolute',
-  top: '5px',
-  right: '5px',
-  background: 'rgba(0, 0, 0, 0.7)',
-  color: 'white',
-  padding: '2px 6px',
-  borderRadius: '10px',
-  fontSize: '0.8rem',
-};
-
-const buttonStyle = {
-  padding: '8px 15px',
-  background: '#007bff',
-  color: 'white',
-  border: 'none',
-  borderRadius: '5px',
-  cursor: 'pointer',
-};
-
 export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange }) {
   const [loadingShotId, setLoadingShotId] = useState(null);
   const [shotForCarousel, setShotForCarousel] = useState(null);
@@ -158,62 +105,61 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
 
   return (
     <>
-      <table style={tableStyle}>
+      <table className="generation-table">
         <thead>
           <tr>
-            <th style={thStyle}>Image</th>
-            <th style={thStyle}>Shot Description</th>
-            <th style={thStyle}>Action</th>
+            <th>Image</th>
+            <th>Shot Description</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {shots.map((shot) => (
             <tr key={shot.id}>
-              <td style={tdStyle}>
-                <div style={thumbnailContainerStyle} onClick={() => shot.imageUrls && shot.imageUrls.length > 0 && setShotForCarousel(shot)}>
+              <td>
+                <div className="table-thumbnail-container" onClick={() => shot.imageUrls && shot.imageUrls.length > 0 && setShotForCarousel(shot)}>
                   <img
                     src={shot.selectedImageUrl || placeholderImage}
                     alt="Shot visualization"
-                    style={imageStyle}
                   />
                   {shot.imageUrls && shot.imageUrls.length > 1 && (
-                    <div style={imageCountBadgeStyle}>
+                    <div className="count-badge">
                       {shot.imageUrls.length}
                     </div>
                   )}
                 </div>
               </td>
-              <td style={{...tdStyle, padding: '0'}}>
-                <div style={{ height: '80px', borderBottom: '1px dashed #ccc', padding: '8px', overflowY: 'auto' }}>{shot.script}</div>
-                <div style={{ height: '80px', padding: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <td className="cell-split">
+                <div className="cell-top">{shot.script}</div>
+                <div className="cell-bottom">
                   <textarea
+                    className="prompt-textarea"
                     placeholder="Edit your image prompt or Generate Prompt with AI"
-                    style={{ flex: 1, height: '100%', border: 'none', resize: 'none', outline: 'none', backgroundColor: editingPromptId === shot.id ? '#fff' : '#f4f4f4' }}
                     value={shot.prompt || ''}
                     onChange={(e) => onPromptChange(shot.id, e.target.value)}
                     readOnly={editingPromptId !== shot.id}
                   />
-                  <button 
-                    style={{...buttonStyle, padding: '5px 10px', fontSize: '0.8rem'}}
+                  <button
+                    className="button-small"
                     onClick={() => setEditingPromptId(editingPromptId === shot.id ? null : shot.id)}
                   >
                     {editingPromptId === shot.id ? 'Save' : 'Edit'}
                   </button>
                 </div>
               </td>
-              <td style={{...tdStyle, padding: '0'}}>
-                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px dashed #ccc' }}>
+              <td className="cell-split">
+                <div className="button-container">
                   <button
-                    style={{...buttonStyle, width: '90%'}}
+                    className="button-full"
                     onClick={() => handleGeneratePrompt(shot)}
                     disabled={generatingPromptShotId === shot.id}
                   >
                     {generatingPromptShotId === shot.id ? 'Generating...' : 'Generate Prompt'}
                   </button>
                 </div>
-                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="button-container">
                   <button
-                    style={{...buttonStyle, width: '90%'}}
+                    className="button-full"
                     onClick={() => handleGenerateImage(shot)}
                     disabled={loadingShotId === shot.id}
                   >

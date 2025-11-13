@@ -539,225 +539,329 @@ function App() {
 
       {currentView === 'mainApp' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '10px 0' }}>
-            <button onClick={handlePreviousStep} disabled={currentStep === 0}>Previous</button>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {pipelineSteps.map((step, index) => (
-                <span key={step} style={{ padding: '5px 10px', borderRadius: '15px', backgroundColor: index === currentStep ? '#007bff' : '#e0e0e0', color: index === currentStep ? 'white' : '#333' }}>{step}</span>
-              ))}
-            </div>
-            <button onClick={handleNextStep} disabled={currentStep === pipelineSteps.length - 1}>Next</button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '1400px', margin: '0 auto' }}>
-            <h2 style={{ color: '#007bff' }}>Project: {project?.projectName}</h2>
-            <button onClick={() => setCurrentView('projectSelection')} style={{ marginLeft: '10px' }}>My Projects</button>
+          <div className="project-header">
+            <button onClick={() => setCurrentView('projectSelection')}>My Projects</button>
             <button onClick={toggleEnvironment} style={{ marginLeft: 'auto' }}>
               Switch to {environment === 'production' ? 'Test' : 'Production'}
             </button>
-            {isSaving && <span style={{ marginLeft: '10px' }}>Saving...</span>}
+            {isSaving && <span className="saving-indicator">Saving...</span>}
           </div>
 
+          <nav className="navigation">
+            <div className="navigation-content">
+              <div className="project-info">
+                <h2>{project?.projectName}</h2>
+                <p>Complete the steps below to create your video.</p>
+              </div>
+
+              <div className="step-tabs">
+                {pipelineSteps.map((step, index) => (
+                  <button
+                    key={step}
+                    className={`step-tab ${index === currentStep ? 'active' : ''} ${index < currentStep ? 'completed' : ''}`}
+                    onClick={() => setCurrentStep(index)}
+                  >
+                    <span className="step-number">{index + 1}</span>
+                    <span>{step}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </nav>
+
           {currentStep === 0 && (
-            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ width: '100%', marginBottom: '20px' }}>
-                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generate AI Content</h3>
-                
-                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt</h5>
-                {selectedTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedTemplateName}</p>}
-                {!selectedTemplateName && templateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
-                <button onClick={() => setShowTemplateEditor(!showTemplateEditor)}>choose template</button>
+            <div className="main-container">
+              {/* Template Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">AI Prompt Template</h3>
+                  <button onClick={() => setShowTemplateEditor(!showTemplateEditor)}>
+                    {showTemplateEditor ? 'Hide Template' : 'Choose Template'}
+                  </button>
+                </div>
+
+                {selectedTemplateName && <p className="template-info">Selected: {selectedTemplateName}</p>}
+                {!selectedTemplateName && templateList.length === 0 && <p className="template-info">No template selected</p>}
+
                 {showTemplateEditor && (
-                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
-                    <textarea 
-                      value={promptTemplate} 
-                      onChange={(e) => setPromptTemplate(e.target.value)} 
-                      rows="6" 
-                      style={{width: '100%', marginBottom: '10px'}} 
+                  <div className="template-editor-container">
+                    <textarea
+                      value={promptTemplate}
+                      onChange={(e) => setPromptTemplate(e.target.value)}
+                      rows="6"
+                      style={{width: '100%', marginBottom: '10px'}}
                     />
-                    <button onClick={() => handleSaveTemplate('script')}>Save Template</button>
-                    <button onClick={() => handleOpenTemplate('script')} style={{marginLeft: '10px'}}>Open Template</button>
+                    <div className="button-group">
+                      <button onClick={() => handleSaveTemplate('script')}>Save Template</button>
+                      <button onClick={() => handleOpenTemplate('script')}>Open Template</button>
+                    </div>
                     {showTemplateList && (
-                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                      <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {templateList.length > 0 ? (
-                          templateList.map(name => (
-                            <button 
-                              key={name} 
-                              onClick={() => handleLoadTemplate(name, 'script')} 
-                              style={{
-                                marginRight: '5px', 
-                                marginBottom: '5px',
-                                backgroundColor: name === selectedTemplateName ? '#007bff' : '#f0f0f0',
-                                color: name === selectedTemplateName ? 'white' : '#333'
-                              }}
-                            >
-                              {name}
-                            </button>
-                          ))
+                          <div className="button-group">
+                            {templateList.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => handleLoadTemplate(name, 'script')}
+                                className={name === selectedTemplateName ? 'primary' : ''}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <p>No templates available.</p>
                         )}
-                        <button onClick={() => setShowTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                        <button onClick={() => setShowTemplateList(false)}>Close</button>
                       </div>
                     )}
                   </div>
                 )}
-
-                <h5 style={{textAlign: 'left', marginTop: '20px', marginBottom: '10px'}}>Idea for the script:</h5>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-                  <textarea value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} placeholder="Enter video idea" disabled={isLoading} rows="4" style={{ flexGrow: 1 }} />
-                  <button onClick={() => {
-                    handleSendIdeaToN8N(WEBHOOK_URLS[environment].script, { 
-                      promptTemplate: promptTemplate,
-                      videoIdea: videoIdea 
-                    }, (data) => {
-                      let allShots = [];
-                      if (data && data[0]) {
-                        Object.values(data[0]).forEach(section => {
-                          if (Array.isArray(section)) {
-                            allShots.push(...section.map(shot => ({ id: `shot-${shot.shot_number}`, script: shot.action_shot, imageUrls: [], selectedImageUrl: '' })));
-                          }
-                        });
-                      }
-                      setScriptResponse(allShots);
-                      setProject(p => ({ ...p, idea: videoIdea, shots: allShots }));
-                    })
-                  }} disabled={isLoading}>{isLoading ? 'Generating...' : 'Generate'}</button>
-                </div>
               </div>
-              {isLoading && <p>Loading script from n8n...</p>}
+
+              {/* Video Idea Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Video Idea</h3>
+                </div>
+
+                <label className="section-label">Enter your video concept:</label>
+                <div className="input-group">
+                  <textarea
+                    value={videoIdea}
+                    onChange={(e) => setVideoIdea(e.target.value)}
+                    placeholder="Enter video idea (e.g., 'pomeranian being a police officer')"
+                    disabled={isLoading}
+                    rows="4"
+                  />
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      handleSendIdeaToN8N(WEBHOOK_URLS[environment].script, {
+                        promptTemplate: promptTemplate,
+                        videoIdea: videoIdea
+                      }, (data) => {
+                        let allShots = [];
+                        if (data && data[0]) {
+                          Object.values(data[0]).forEach(section => {
+                            if (Array.isArray(section)) {
+                              allShots.push(...section.map(shot => ({ id: `shot-${shot.shot_number}`, script: shot.action_shot, imageUrls: [], selectedImageUrl: '' })));
+                            }
+                          });
+                        }
+                        setScriptResponse(allShots);
+                        setProject(p => ({ ...p, idea: videoIdea, shots: allShots }));
+                      })
+                    }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Generating...' : 'Generate Script'}
+                  </button>
+                </div>
+                {isLoading && <p className="template-info">Loading script from AI...</p>}
+              </div>
+
+              {/* Generated Shots Section */}
               {scriptResponse.length > 0 && (
-                <div className="script-display" style={{width: '100%'}}>
-                  <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generated Script</h3>
-                  <button onClick={handleUndo} disabled={historyPointer <= 0}>Undo</button>
-                  <button onClick={handleRedo} disabled={historyPointer >= history.length - 1}>Redo</button>
-                  <button onClick={handleAddNewCard}>Add New Card</button>
-                  <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-                    <SortableContext items={scriptResponse.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                      {scriptResponse.map(shot => <DraggableScriptCard key={shot.id} id={shot.id} script={shot.script} onScriptChange={handleScriptChange} onDelete={handleDeleteScriptCard} />)}
-                    </SortableContext>
-                  </DndContext>
+                <div className="section-card">
+                  <div className="section-header">
+                    <h3 className="section-title">Script Shots</h3>
+                    <div className="button-group">
+                      <button onClick={handleUndo} disabled={historyPointer <= 0}>Undo</button>
+                      <button onClick={handleRedo} disabled={historyPointer >= history.length - 1}>Redo</button>
+                      <button onClick={handleAddNewCard} className="primary">Add New Shot</button>
+                    </div>
+                  </div>
+
+                  <div className="section-content">
+                    <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+                      <SortableContext items={scriptResponse.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                        {scriptResponse.map(shot => (
+                          <DraggableScriptCard
+                            key={shot.id}
+                            id={shot.id}
+                            script={shot.script}
+                            onScriptChange={handleScriptChange}
+                            onDelete={handleDeleteScriptCard}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           {currentStep === 1 && (
-            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ width: '100%', marginBottom: '20px' }}>
-                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Generate AI Content</h3>
-                
-                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt for Art Direction</h5>
-                {selectedArtDirectionTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedArtDirectionTemplateName}</p>}
-                {!selectedArtDirectionTemplateName && artDirectionTemplateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
-                <button onClick={() => setShowArtDirectionTemplateEditor(!showArtDirectionTemplateEditor)}>choose template</button>
+            <div className="main-container">
+              {/* Template Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">AI Prompt Template</h3>
+                  <button onClick={() => setShowArtDirectionTemplateEditor(!showArtDirectionTemplateEditor)}>
+                    {showArtDirectionTemplateEditor ? 'Hide Template' : 'Choose Template'}
+                  </button>
+                </div>
+
+                {selectedArtDirectionTemplateName && <p className="template-info">Selected: {selectedArtDirectionTemplateName}</p>}
+                {!selectedArtDirectionTemplateName && artDirectionTemplateList.length === 0 && <p className="template-info">No template selected</p>}
+
                 {showArtDirectionTemplateEditor && (
-                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
-                    <textarea 
-                      value={artDirectionPromptTemplate} 
-                      onChange={(e) => setArtDirectionPromptTemplate(e.target.value)} 
-                      rows="6" 
-                      style={{width: '100%', marginBottom: '10px'}} 
+                  <div className="template-editor-container">
+                    <textarea
+                      value={artDirectionPromptTemplate}
+                      onChange={(e) => setArtDirectionPromptTemplate(e.target.value)}
+                      rows="6"
+                      style={{width: '100%', marginBottom: '10px'}}
                     />
-                    <button onClick={() => handleSaveTemplate('art_direction')}>Save Template</button>
-                    <button onClick={() => handleOpenTemplate('art_direction')} style={{marginLeft: '10px'}}>Open Template</button>
+                    <div className="button-group">
+                      <button onClick={() => handleSaveTemplate('art_direction')}>Save Template</button>
+                      <button onClick={() => handleOpenTemplate('art_direction')}>Open Template</button>
+                    </div>
                     {showArtDirectionTemplateList && (
-                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                      <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {artDirectionTemplateList.length > 0 ? (
-                          artDirectionTemplateList.map(name => (
-                            <button 
-                              key={name} 
-                              onClick={() => handleLoadTemplate(name, 'art_direction')} 
-                              style={{
-                                marginRight: '5px', 
-                                marginBottom: '5px',
-                                backgroundColor: name === selectedArtDirectionTemplateName ? '#007bff' : '#f0f0f0',
-                                color: name === selectedArtDirectionTemplateName ? 'white' : '#333'
-                              }}
-                            >
-                              {name}
-                            </button>
-                          ))
+                          <div className="button-group">
+                            {artDirectionTemplateList.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => handleLoadTemplate(name, 'art_direction')}
+                                className={name === selectedArtDirectionTemplateName ? 'primary' : ''}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <p>No templates available.</p>
                         )}
-                        <button onClick={() => setShowArtDirectionTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                        <button onClick={() => setShowArtDirectionTemplateList(false)}>Close</button>
                       </div>
                     )}
                   </div>
                 )}
+              </div>
 
-                <div style={{ marginTop: '20px', marginBottom: '15px' }}>
-                  <h5 style={{textAlign: 'left'}}>Script:</h5>
-                  <div style={{ border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', background: '#f8f9fa', maxHeight: '150px', overflowY: 'auto' }}>
-                    {scriptResponse.map(shot => <p key={shot.id} style={{ margin: 0 }}>{shot.script}</p>)}
+              {/* Input Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Generate Art Direction</h3>
+                </div>
+
+                <div className="section-content">
+                  <label className="section-label">Script Preview:</label>
+                  <div className="script-preview-box">
+                    {scriptResponse.map(shot => <p key={shot.id}>{shot.script}</p>)}
+                  </div>
+
+                  <label className="section-label" style={{marginTop: 'var(--spacing-lg)'}}>Additional Information:</label>
+                  <textarea
+                    value={artDirectionIdea}
+                    onChange={(e) => setArtDirectionIdea(e.target.value)}
+                    placeholder="Characters, Locations, Outfits..."
+                    disabled={isLoading}
+                    rows="4"
+                  />
+
+                  <label className="section-label" style={{marginTop: 'var(--spacing-lg)'}}>Image Reference:</label>
+                  <div className="input-group">
+                    <input type="file" accept="image/*" onChange={handleImageChange} />
+                    <button className="primary" onClick={handleGenerateArtDirection} disabled={isLoading}>
+                      {isLoading ? 'Generating...' : 'Generate Art Direction'}
+                    </button>
                   </div>
                 </div>
-                <div>
-                  <h5 style={{textAlign: 'left'}}>More information:</h5>
-                  <textarea value={artDirectionIdea} onChange={(e) => setArtDirectionIdea(e.target.value)} placeholder="Characters, Locations, Outfits..." disabled={isLoading} rows="4" style={{width: '100%'}} />
-                  <h5 style={{textAlign: 'left'}}>Image Reference:</h5>
-                  <input type="file" accept="image/*" onChange={handleImageChange} />
-                  <button onClick={handleGenerateArtDirection} disabled={isLoading}>{isLoading ? 'Generating...' : 'Generate'}</button>
+              </div>
+
+              {/* Art Direction Result */}
+              {artDirectionResponse && (
+                <div className="section-card">
+                  <div className="section-header">
+                    <h3 className="section-title">Art Direction Result</h3>
+                  </div>
+                  <ArtDirectionCard name="Art Direction" description={artDirectionResponse} onSave={handleArtDirectionChange} />
                 </div>
-              </div>
-              <div style={{ width: '100%', marginTop: '20px' }}>
-                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Art Direction:</h3>
-                <ArtDirectionCard name="Art Direction" description={artDirectionResponse} onSave={handleArtDirectionChange} />
-              </div>
+              )}
             </div>
           )}
 
           {currentStep === 2 && (
-            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ width: '100%', marginBottom: '20px' }}>
-                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Image Generation</h3>
+            <div className="main-container">
+              {/* Template Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">AI Prompt Template</h3>
+                  <button onClick={() => setShowImageGenTemplateEditor(!showImageGenTemplateEditor)}>
+                    {showImageGenTemplateEditor ? 'Hide Template' : 'Choose Template'}
+                  </button>
+                </div>
 
-                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt for Image Generation</h5>
-                {selectedImageGenTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedImageGenTemplateName}</p>}
-                {!selectedImageGenTemplateName && imageGenTemplateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
-                <button onClick={() => setShowImageGenTemplateEditor(!showImageGenTemplateEditor)}>choose template</button>
+                {selectedImageGenTemplateName && <p className="template-info">Selected: {selectedImageGenTemplateName}</p>}
+                {!selectedImageGenTemplateName && imageGenTemplateList.length === 0 && <p className="template-info">No template selected</p>}
+
                 {showImageGenTemplateEditor && (
-                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
-                    <textarea 
-                      value={imageGenPromptTemplate} 
-                      onChange={(e) => setImageGenPromptTemplate(e.target.value)} 
-                      rows="6" 
-                      style={{width: '100%', marginBottom: '10px'}} 
+                  <div className="template-editor-container">
+                    <textarea
+                      value={imageGenPromptTemplate}
+                      onChange={(e) => setImageGenPromptTemplate(e.target.value)}
+                      rows="6"
+                      style={{width: '100%', marginBottom: '10px'}}
                     />
-                    <button onClick={() => handleSaveTemplate('image_generation')}>Save Template</button>
-                    <button onClick={() => handleOpenTemplate('image_generation')} style={{marginLeft: '10px'}}>Open Template</button>
+                    <div className="button-group">
+                      <button onClick={() => handleSaveTemplate('image_generation')}>Save Template</button>
+                      <button onClick={() => handleOpenTemplate('image_generation')}>Open Template</button>
+                    </div>
                     {showImageGenTemplateList && (
-                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                      <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {imageGenTemplateList.length > 0 ? (
-                          imageGenTemplateList.map(name => (
-                            <button 
-                              key={name} 
-                              onClick={() => handleLoadTemplate(name, 'image_generation')} 
-                              style={{
-                                marginRight: '5px', 
-                                marginBottom: '5px',
-                                backgroundColor: name === selectedImageGenTemplateName ? '#007bff' : '#f0f0f0',
-                                color: name === selectedImageGenTemplateName ? 'white' : '#333'
-                              }}
-                            >
-                              {name}
-                            </button>
-                          ))
+                          <div className="button-group">
+                            {imageGenTemplateList.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => handleLoadTemplate(name, 'image_generation')}
+                                className={name === selectedImageGenTemplateName ? 'primary' : ''}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <p>No templates available.</p>
                         )}
-                        <button onClick={() => setShowImageGenTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                        <button onClick={() => setShowImageGenTemplateList(false)}>Close</button>
                       </div>
                     )}
                   </div>
                 )}
+              </div>
 
-                <h5 style={{textAlign: 'left', marginTop: '20px'}}>Image Reference URL:</h5>
-                <input type="text" placeholder="Enter image URL" value={imageGenUrl} onChange={handleImageGenUrlChange} style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', marginBottom: '20px' }} />
+              {/* Settings Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Image Generation Settings</h3>
+                </div>
+
+                <div className="section-content">
+                  <label className="section-label">Image Reference URL:</label>
+                  <input
+                    type="text"
+                    placeholder="Enter image URL for style reference"
+                    value={imageGenUrl}
+                    onChange={handleImageGenUrlChange}
+                  />
+                </div>
+              </div>
+
+              {/* Generation Table Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Generate Images</h3>
+                </div>
+
                 <ImageGenerationTable
                   key={environment}
                   shots={scriptResponse}
@@ -775,57 +879,68 @@ function App() {
           )}
 
           {currentStep === 3 && (
-            <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ width: '100%', marginBottom: '20px' }}>
-                <h3 style={{ color: '#007bff', marginBottom: '10px', textAlign: 'left' }}>Video Generation</h3>
+            <div className="main-container">
+              {/* Template Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">AI Prompt Template</h3>
+                  <button onClick={() => setShowVideoGenTemplateEditor(!showVideoGenTemplateEditor)}>
+                    {showVideoGenTemplateEditor ? 'Hide Template' : 'Choose Template'}
+                  </button>
+                </div>
 
-                <h5 style={{textAlign: 'left', marginBottom: '10px'}}>AI prompt for Video Generation</h5>
-                {selectedVideoGenTemplateName && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>Selected: {selectedVideoGenTemplateName}</p>}
-                {!selectedVideoGenTemplateName && videoGenTemplateList.length === 0 && <p style={{marginTop: '-5px', marginBottom: '10px', fontSize: '0.9em', color: '#666'}}>No template selected</p>}
-                <button onClick={() => setShowVideoGenTemplateEditor(!showVideoGenTemplateEditor)}>choose template</button>
+                {selectedVideoGenTemplateName && <p className="template-info">Selected: {selectedVideoGenTemplateName}</p>}
+                {!selectedVideoGenTemplateName && videoGenTemplateList.length === 0 && <p className="template-info">No template selected</p>}
+
                 {showVideoGenTemplateEditor && (
-                  <div style={{border: '1px solid #e0e0e0', borderRadius: '4px', padding: '10px', marginTop: '10px'}}>
-                    <textarea 
-                      value={videoGenPromptTemplate} 
-                      onChange={(e) => setVideoGenPromptTemplate(e.target.value)} 
-                      rows="6" 
-                      style={{width: '100%', marginBottom: '10px'}} 
+                  <div className="template-editor-container">
+                    <textarea
+                      value={videoGenPromptTemplate}
+                      onChange={(e) => setVideoGenPromptTemplate(e.target.value)}
+                      rows="6"
+                      style={{width: '100%', marginBottom: '10px'}}
                     />
-                    <button onClick={() => handleSaveTemplate('video_generation')}>Save Template</button>
-                    <button onClick={() => handleOpenTemplate('video_generation')} style={{marginLeft: '10px'}}>Open Template</button>
+                    <div className="button-group">
+                      <button onClick={() => handleSaveTemplate('video_generation')}>Save Template</button>
+                      <button onClick={() => handleOpenTemplate('video_generation')}>Open Template</button>
+                    </div>
                     {showVideoGenTemplateList && (
-                      <div className="template-list-modal" style={{marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px'}}>
+                      <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {videoGenTemplateList.length > 0 ? (
-                          videoGenTemplateList.map(name => (
-                            <button 
-                              key={name} 
-                              onClick={() => handleLoadTemplate(name, 'video_generation')} 
-                              style={{
-                                marginRight: '5px', 
-                                marginBottom: '5px',
-                                backgroundColor: name === selectedVideoGenTemplateName ? '#007bff' : '#f0f0f0',
-                                color: name === selectedVideoGenTemplateName ? 'white' : '#333'
-                              }}
-                            >
-                              {name}
-                            </button>
-                          ))
+                          <div className="button-group">
+                            {videoGenTemplateList.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => handleLoadTemplate(name, 'video_generation')}
+                                className={name === selectedVideoGenTemplateName ? 'primary' : ''}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
                         ) : (
                           <p>No templates available.</p>
                         )}
-                        <button onClick={() => setShowVideoGenTemplateList(false)} style={{marginTop: '10px'}}>Close</button>
+                        <button onClick={() => setShowVideoGenTemplateList(false)}>Close</button>
                       </div>
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Generation Table Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Generate Videos</h3>
+                </div>
 
                 <VideoGenerationTable
                   shots={scriptResponse}
                   videoGenPromptTemplate={videoGenPromptTemplate}
                   videoPromptGenWebhookUrl={WEBHOOK_URLS[environment].videoPromptGen}
                   videoGenWebhookUrl={WEBHOOK_URLS[environment].videoGen}
-                  artDirectionText={artDirectionResponse} // Needed for payload
+                  artDirectionText={artDirectionResponse}
                   onVideoPromptChange={handleVideoPromptChange}
                   onNewVideoFromAI={handleNewVideoFromAI}
                   onSetSelectedVideo={handleSetSelectedVideo}

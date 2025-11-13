@@ -1,67 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-const modalStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
-  backgroundColor: 'rgba(0, 0, 0, 0.85)',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 1000,
-};
-
-const imageContainerStyle = {
-  position: 'relative',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  width: '90vw',
-  height: '90vh',
-};
-
-const imageStyle = {
-  maxWidth: '100%',
-  maxHeight: '100%',
-  objectFit: 'contain',
-};
-
-const navButtonStyle = {
-  position: 'absolute',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  color: 'white',
-  border: 'none',
-  fontSize: '3rem',
-  cursor: 'pointer',
-  padding: '0 20px',
-  userSelect: 'none',
-};
-
-const closeButtonStyle = {
-  position: 'absolute',
-  top: '10px',
-  right: '25px',
-  fontSize: '3rem',
-  color: 'white',
-  cursor: 'pointer',
-};
-
-const counterStyle = {
-  position: 'absolute',
-  top: '20px',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  color: 'white',
-  fontSize: '1.2rem',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  padding: '5px 15px',
-  borderRadius: '15px',
-};
-
 export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetSelected }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -72,7 +10,22 @@ export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetS
     }
   }, [imageUrls, initialImageUrl]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleClose();
+      if (e.key === 'ArrowLeft') goToPrevious(e);
+      if (e.key === 'ArrowRight') goToNext(e);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex]);
+
   const handleClose = () => {
+    onClose();
+  };
+
+  const handleSetSelected = (e) => {
+    e.stopPropagation();
     onSetSelected(imageUrls[currentIndex]);
     onClose();
   };
@@ -92,13 +45,49 @@ export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetS
   };
 
   return (
-    <div style={modalStyle} onClick={handleClose}>
-      <span style={closeButtonStyle} onClick={handleClose}>&times;</span>
-      <div style={imageContainerStyle}>
-        <button style={{ ...navButtonStyle, left: '10px' }} onClick={goToPrevious}>&#10094;</button>
-        <img src={imageUrls[currentIndex]} alt="Carousel view" style={imageStyle} />
-        <button style={{ ...navButtonStyle, right: '10px' }} onClick={goToNext}>&#10095;</button>
-        <div style={counterStyle}>{currentIndex + 1} / {imageUrls.length}</div>
+    <div className="carousel-modal-overlay" onClick={handleClose}>
+      <button
+        className="carousel-close-button"
+        onClick={handleClose}
+      >
+        ×
+      </button>
+
+      <div className="carousel-content-container" onClick={(e) => e.stopPropagation()}>
+        {imageUrls.length > 1 && (
+          <button
+            className="carousel-nav-button left"
+            onClick={goToPrevious}
+          >
+            ‹
+          </button>
+        )}
+
+        <img
+          src={imageUrls[currentIndex]}
+          alt={`Image ${currentIndex + 1} of ${imageUrls.length}`}
+          className="carousel-media carousel-media-image"
+        />
+
+        {imageUrls.length > 1 && (
+          <button
+            className="carousel-nav-button right"
+            onClick={goToNext}
+          >
+            ›
+          </button>
+        )}
+
+        <div className="carousel-counter">
+          {currentIndex + 1} / {imageUrls.length}
+        </div>
+
+        <button
+          className="carousel-select-button"
+          onClick={handleSetSelected}
+        >
+          Set as Selected
+        </button>
       </div>
     </div>
   );

@@ -1,66 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-const modalStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
-  backgroundColor: 'rgba(0, 0, 0, 0.85)',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 1000,
-};
-
-const videoContainerStyle = {
-  position: 'relative',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  width: '90vw',
-  height: '90vh',
-};
-
-const videoStyle = {
-  maxWidth: '100%',
-  maxHeight: '100%',
-};
-
-const navButtonStyle = {
-  position: 'absolute',
-  top: '50%',
-  transform: 'translateY(-50%)',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  color: 'white',
-  border: 'none',
-  fontSize: '3rem',
-  cursor: 'pointer',
-  padding: '0 20px',
-  userSelect: 'none',
-};
-
-const closeButtonStyle = {
-  position: 'absolute',
-  top: '10px',
-  right: '25px',
-  fontSize: '3rem',
-  color: 'white',
-  cursor: 'pointer',
-};
-
-const counterStyle = {
-  position: 'absolute',
-  top: '20px',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  color: 'white',
-  fontSize: '1.2rem',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  padding: '5px 15px',
-  borderRadius: '15px',
-};
-
 export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetSelected }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -71,7 +10,22 @@ export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetS
     }
   }, [videoUrls, initialVideoUrl]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleClose();
+      if (e.key === 'ArrowLeft') goToPrevious(e);
+      if (e.key === 'ArrowRight') goToNext(e);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex]);
+
   const handleClose = () => {
+    onClose();
+  };
+
+  const handleSetSelected = (e) => {
+    e.stopPropagation();
     if (onSetSelected) {
       onSetSelected(videoUrls[currentIndex]);
     }
@@ -97,13 +51,53 @@ export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetS
   }
 
   return (
-    <div style={modalStyle} onClick={handleClose}>
-      <span style={closeButtonStyle} onClick={handleClose}>&times;</span>
-      <div style={videoContainerStyle}>
-        <button style={{ ...navButtonStyle, left: '10px' }} onClick={goToPrevious}>&#10094;</button>
-        <video src={videoUrls[currentIndex]} style={videoStyle} controls autoPlay />
-        <button style={{ ...navButtonStyle, right: '10px' }} onClick={goToNext}>&#10095;</button>
-        <div style={counterStyle}>{currentIndex + 1} / {videoUrls.length}</div>
+    <div className="carousel-modal-overlay" onClick={handleClose}>
+      <button
+        className="carousel-close-button"
+        onClick={handleClose}
+      >
+        ×
+      </button>
+
+      <div className="carousel-content-container" onClick={(e) => e.stopPropagation()}>
+        {videoUrls.length > 1 && (
+          <button
+            className="carousel-nav-button left"
+            onClick={goToPrevious}
+          >
+            ‹
+          </button>
+        )}
+
+        <video
+          key={videoUrls[currentIndex]}
+          src={videoUrls[currentIndex]}
+          className="carousel-media"
+          controls
+          autoPlay
+        />
+
+        {videoUrls.length > 1 && (
+          <button
+            className="carousel-nav-button right"
+            onClick={goToNext}
+          >
+            ›
+          </button>
+        )}
+
+        <div className="carousel-counter">
+          {currentIndex + 1} / {videoUrls.length}
+        </div>
+
+        {onSetSelected && (
+          <button
+            className="carousel-select-button"
+            onClick={handleSetSelected}
+          >
+            Set as Selected
+          </button>
+        )}
       </div>
     </div>
   );
