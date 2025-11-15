@@ -15,6 +15,7 @@ const WEBHOOK_URLS = {
     promptGen: 'https://n8n.lemonsushi.com/webhook-test/promptImageGen',
     videoPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompVideoGen',
     videoGen: 'https://n8n.lemonsushi.com/webhook-test/VideoGenFromPrompt',
+    imageUpload: 'https://n8n.lemonsushi.com/webhook-test/uploadReferenceImage',
     render: 'http://localhost:3001/render',
   },
   production: {
@@ -24,6 +25,7 @@ const WEBHOOK_URLS = {
     promptGen: 'https://n8n.lemonsushi.com/webhook/promptImageGen',
     videoPromptGen: 'https://n8n.lemonsushi.com/webhook/prompVideoGen',
     videoGen: 'https://n8n.lemonsushi.com/webhook/VideoGenFromPrompt',
+    imageUpload: 'https://n8n.lemonsushi.com/webhook/uploadReferenceImage',
     render: 'http://localhost:3001/render',
   }
 };
@@ -64,6 +66,9 @@ function App() {
   const [historyPointer, setHistoryPointer] = useState(-1);
   const [currentStep, setCurrentStep] = useState(0);
   const [imageGenUrl, setImageGenUrl] = useState('');
+  const [referenceImageFile, setReferenceImageFile] = useState(null);
+  const [uploadingReferenceImage, setUploadingReferenceImage] = useState(false);
+  const [referenceImageHistory, setReferenceImageHistory] = useState([]);
   const [environment, setEnvironment] = useState('production');
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [promptTemplate, setPromptTemplate] = useState('Create a script for a short video about {{videoIdea}}. The script should have a few shots, each with a clear action.');
@@ -140,6 +145,7 @@ function App() {
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'art_direction' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
+      websocket.current.send(JSON.stringify({ action: 'load_reference_history' }));
     }
   }, [currentView]);
 
@@ -147,6 +153,8 @@ function App() {
     websocket.current = new WebSocket('ws://localhost:3001');
     websocket.current.onopen = () => {
       console.log('WebSocket connection established');
+      // Load reference history when WebSocket connects
+      websocket.current.send(JSON.stringify({ action: 'load_reference_history' }));
     };
     websocket.current.onmessage = (event) => {
       const message = JSON.parse(event.data);
@@ -272,9 +280,14 @@ function App() {
           });
           return { ...p, shots: newScripts };
         });
+      } else if (message.action === 'reference_history_loaded' && message.status === 'success') {
+        setReferenceImageHistory(message.payload.history || []);
+      } else if (message.action === 'reference_history_saved' && message.status === 'success') {
+        setReferenceImageHistory(message.payload.history || []);
       } else if (message.status === 'error') {
         alert(`Error: ${message.message}`);
         setIsSaving(false);
+        setUploadingReferenceImage(false);
       }
     };
     websocket.current.onclose = () => console.log('WebSocket connection closed');
@@ -293,6 +306,77 @@ function App() {
 
   const handleImageGenUrlChange = (event) => {
     setImageGenUrl(event.target.value);
+  };
+
+  const handleReferenceImageFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setReferenceImageFile(file);
+    }
+  };
+
+  const handleUploadReferenceImage = async () => {
+    if (!referenceImageFile) {
+      alert('Please select an image file first');
+      return;
+    }
+
+    setUploadingReferenceImage(true);
+
+    try {
+      // Send to n8n webhook using FormData
+      const uploadWebhookUrl = WEBHOOK_URLS[environment].imageUpload || 'YOUR_N8N_UPLOAD_WEBHOOK_URL';
+
+      const formData = new FormData();
+      formData.append('file', referenceImageFile);
+
+      const response = await fetch(uploadWebhookUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        // Handle different response formats
+        let imageUrl = null;
+        if (responseData.url) {
+          // Format: { url: "..." }
+          imageUrl = responseData.url;
+        } else if (responseData[0]?.publicUrl) {
+          // Format: [{ publicUrl: "...", filename: "...", filepath: "..." }]
+          imageUrl = responseData[0].publicUrl;
+        }
+
+        if (imageUrl) {
+          // Update the image URL in state
+          setImageGenUrl(imageUrl);
+          setUploadingReferenceImage(false);
+
+          // Save to reference history via backend
+          if (websocket.current) {
+            websocket.current.send(JSON.stringify({
+              action: 'save_reference_history',
+              payload: { url: imageUrl }
+            }));
+          }
+        } else {
+          alert('Failed to get image URL from upload');
+          console.log('Response data:', responseData);
+          setUploadingReferenceImage(false);
+        }
+      } else {
+        alert('Failed to upload image. Check console for details.');
+        setUploadingReferenceImage(false);
+      }
+    } catch (error) {
+      console.error('Error uploading reference image:', error);
+      alert('Error uploading image. Check console for details.');
+      setUploadingReferenceImage(false);
+    }
+  };
+
+  const handleSelectReferenceFromHistory = (imageUrl) => {
+    setImageGenUrl(imageUrl);
   };
 
   const handleNewProject = () => {
@@ -475,20 +559,12 @@ function App() {
       setArtDirectionResponse(formatN8NResponseForDisplay(data));
     };
 
-    if (artDirectionImage) {
-      const formData = new FormData();
-      formData.append('artDirectionPromptTemplate', artDirectionPromptTemplate);
-      formData.append('artDirectionIdea', artDirectionIdea);
-      formData.append('script', scriptText);
-      formData.append('image', artDirectionImage);
-      handleSendFormDataToN8N(n8nWebhookUrl, formData, processResponse);
-    } else {
-      handleSendIdeaToN8N(n8nWebhookUrl, { 
-        artDirectionPromptTemplate: artDirectionPromptTemplate,
-        artDirectionIdea: artDirectionIdea, 
-        script: scriptText 
-      }, processResponse);
-    }
+    handleSendIdeaToN8N(n8nWebhookUrl, {
+      artDirectionPromptTemplate: artDirectionPromptTemplate,
+      artDirectionIdea: artDirectionIdea,
+      script: scriptText,
+      image: imageGenUrl
+    }, processResponse);
   };
 
   const handleNewImageFromAI = (shotId, externalImageUrl) => {
@@ -929,13 +1005,75 @@ function App() {
                     rows="4"
                   />
 
-                  <label className="section-label" style={{marginTop: 'var(--spacing-lg)'}}>Image Reference:</label>
-                  <div className="input-group">
-                    <input type="file" accept="image/*" onChange={handleImageChange} />
-                    <button className="primary" onClick={handleGenerateArtDirection} disabled={isLoading}>
-                      {isLoading ? 'Generating...' : 'Generate Art Direction'}
+                  <label className="section-label" style={{marginTop: 'var(--spacing-lg)'}}>Upload Reference Image:</label>
+                  <div className="input-group" style={{marginBottom: 'var(--spacing-md)'}}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleReferenceImageFileChange}
+                      disabled={uploadingReferenceImage}
+                    />
+                    <button
+                      className="primary-button"
+                      onClick={handleUploadReferenceImage}
+                      disabled={!referenceImageFile || uploadingReferenceImage}
+                    >
+                      {uploadingReferenceImage ? 'Uploading...' : 'Upload Image'}
                     </button>
                   </div>
+
+                  {imageGenUrl && (
+                    <div style={{marginBottom: 'var(--spacing-md)'}}>
+                      <label className="section-label">Current Reference URL:</label>
+                      <input
+                        type="text"
+                        value={imageGenUrl}
+                        readOnly
+                        style={{backgroundColor: '#2a2a2a', color: '#e0e0e0', cursor: 'default'}}
+                      />
+                    </div>
+                  )}
+
+                  {referenceImageHistory.length > 0 && (
+                    <div style={{marginBottom: 'var(--spacing-md)'}}>
+                      <label className="section-label">Previously Uploaded References:</label>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                        gap: '10px',
+                        marginTop: '10px'
+                      }}>
+                        {referenceImageHistory.map((item, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleSelectReferenceFromHistory(item.url)}
+                            style={{
+                              cursor: 'pointer',
+                              border: imageGenUrl === item.url ? '3px solid #007bff' : '2px solid #ddd',
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                              aspectRatio: '1',
+                              position: 'relative'
+                            }}
+                          >
+                            <img
+                              src={formatMediaUrl(item.url)}
+                              alt={`Reference ${index + 1}`}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button className="primary" onClick={handleGenerateArtDirection} disabled={isLoading} style={{width: '100%'}}>
+                    {isLoading ? 'Generating...' : 'Generate Art Direction'}
+                  </button>
                 </div>
               </div>
 
@@ -1009,13 +1147,71 @@ function App() {
                 </div>
 
                 <div className="section-content">
-                  <label className="section-label">Image Reference URL:</label>
-                  <input
-                    type="text"
-                    placeholder="Enter image URL for style reference"
-                    value={imageGenUrl}
-                    onChange={handleImageGenUrlChange}
-                  />
+                  <label className="section-label">Upload Reference Image:</label>
+                  <div className="input-group" style={{marginBottom: 'var(--spacing-md)'}}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleReferenceImageFileChange}
+                      disabled={uploadingReferenceImage}
+                    />
+                    <button
+                      className="primary-button"
+                      onClick={handleUploadReferenceImage}
+                      disabled={!referenceImageFile || uploadingReferenceImage}
+                    >
+                      {uploadingReferenceImage ? 'Uploading...' : 'Upload Image'}
+                    </button>
+                  </div>
+
+                  {imageGenUrl && (
+                    <div style={{marginBottom: 'var(--spacing-md)'}}>
+                      <label className="section-label">Current Reference URL:</label>
+                      <input
+                        type="text"
+                        value={imageGenUrl}
+                        readOnly
+                        style={{backgroundColor: '#2a2a2a', color: '#e0e0e0', cursor: 'default'}}
+                      />
+                    </div>
+                  )}
+
+                  {referenceImageHistory.length > 0 && (
+                    <div>
+                      <label className="section-label">Previously Uploaded References:</label>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                        gap: '10px',
+                        marginTop: '10px'
+                      }}>
+                        {referenceImageHistory.map((item, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleSelectReferenceFromHistory(item.url)}
+                            style={{
+                              cursor: 'pointer',
+                              border: imageGenUrl === item.url ? '3px solid #007bff' : '2px solid #ddd',
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                              aspectRatio: '1',
+                              position: 'relative'
+                            }}
+                          >
+                            <img
+                              src={formatMediaUrl(item.url)}
+                              alt={`Reference ${index + 1}`}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

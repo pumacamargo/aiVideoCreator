@@ -251,6 +251,12 @@ wss.on('connection', (ws) => {
         case 'load_template':
           handleLoadTemplate(ws, parsedMessage.payload);
           break;
+        case 'save_reference_history':
+          handleSaveReferenceHistory(ws, parsedMessage.payload);
+          break;
+        case 'load_reference_history':
+          handleLoadReferenceHistory(ws);
+          break;
         default:
           ws.send(JSON.stringify({ status: 'error', message: 'Unknown action' }));
       }
@@ -327,6 +333,93 @@ function handleSaveTemplate(ws, payload) {
     }
     console.log(`Template '${sanitizedTemplateName}' of type '${templateType}' saved successfully.`);
     ws.send(JSON.stringify({ status: 'success', action: 'template_saved', payload: { templateName: sanitizedTemplateName, templateType: templateType } }));
+  });
+}
+
+function handleSaveReferenceHistory(ws, payload) {
+  const { url } = payload;
+  if (!url) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'URL is required to save reference history.' }));
+  }
+
+  const referenceHistoryPath = path.join(templatesDir, 'reference_images.json');
+
+  // Read existing history
+  let history = [];
+  if (fs.existsSync(referenceHistoryPath)) {
+    try {
+      const data = fs.readFileSync(referenceHistoryPath, 'utf8');
+      history = JSON.parse(data);
+    } catch (err) {
+      console.error('Failed to read reference history:', err);
+    }
+  }
+
+  // Add new entry with timestamp
+  const newEntry = {
+    url,
+    timestamp: new Date().toISOString()
+  };
+
+  // Check if URL already exists
+  const existingIndex = history.findIndex(item => item.url === url);
+  if (existingIndex !== -1) {
+    // Update timestamp if it exists
+    history[existingIndex] = newEntry;
+  } else {
+    // Add new entry to the beginning
+    history.unshift(newEntry);
+  }
+
+  // Limit to last 50 images
+  if (history.length > 50) {
+    history = history.slice(0, 50);
+  }
+
+  // Save updated history
+  fs.writeFile(referenceHistoryPath, JSON.stringify(history, null, 2), 'utf8', (err) => {
+    if (err) {
+      console.error('Failed to save reference history:', err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to save reference history.' }));
+    }
+    console.log('Reference history saved successfully');
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'reference_history_saved',
+      payload: { history }
+    }));
+  });
+}
+
+function handleLoadReferenceHistory(ws) {
+  const referenceHistoryPath = path.join(templatesDir, 'reference_images.json');
+
+  if (!fs.existsSync(referenceHistoryPath)) {
+    // Return empty history if file doesn't exist
+    return ws.send(JSON.stringify({
+      status: 'success',
+      action: 'reference_history_loaded',
+      payload: { history: [] }
+    }));
+  }
+
+  fs.readFile(referenceHistoryPath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Failed to read reference history:', err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to load reference history.' }));
+    }
+
+    try {
+      const history = JSON.parse(data);
+      ws.send(JSON.stringify({
+        status: 'success',
+        action: 'reference_history_loaded',
+        payload: { history }
+      }));
+    } catch (parseErr) {
+      console.error('Failed to parse reference history:', parseErr);
+      ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse reference history.' }));
+    }
   });
 }
 
