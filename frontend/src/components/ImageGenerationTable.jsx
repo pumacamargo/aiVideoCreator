@@ -120,8 +120,40 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
     }
   };
 
+  const handleBatchGeneratePrompts = async () => {
+    const shotsWithoutPrompt = shots.filter(shot => !shot.prompt || shot.prompt.trim() === '');
+
+    for (const shot of shotsWithoutPrompt) {
+      console.log(`[Batch] Generating prompt for shot ${shot.id}`);
+      await handleGeneratePrompt(shot);
+    }
+
+    console.log('[Batch] All prompts generated');
+  };
+
+  const handleBatchGenerateImages = async () => {
+    const shotsWithPromptButNoImage = shots.filter(shot =>
+      shot.prompt && shot.prompt.trim() !== '' && (!shot.imageUrls || shot.imageUrls.length === 0)
+    );
+
+    for (const shot of shotsWithPromptButNoImage) {
+      console.log(`[Batch] Generating image for shot ${shot.id}`);
+      await handleGenerateImage(shot);
+    }
+
+    console.log('[Batch] All images generated');
+  };
+
   return (
     <>
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
+        <button onClick={handleBatchGeneratePrompts} className="primary-button">
+          Batch Generate Prompts (Empty Only)
+        </button>
+        <button onClick={handleBatchGenerateImages} className="primary-button">
+          Batch Generate AI Images (Empty Only)
+        </button>
+      </div>
       <table className="generation-table">
         <thead>
           <tr>

@@ -114,8 +114,40 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
     }
   };
 
+  const handleBatchGenerateVideoPrompts = async () => {
+    const shotsWithoutVideoPrompt = shots.filter(shot => !shot.videoPrompt || shot.videoPrompt.trim() === '');
+
+    for (const shot of shotsWithoutVideoPrompt) {
+      console.log(`[Batch] Generating video prompt for shot ${shot.id}`);
+      await handleGenerateVideoPrompt(shot);
+    }
+
+    console.log('[Batch] All video prompts generated');
+  };
+
+  const handleBatchGenerateVideos = async () => {
+    const shotsWithPromptButNoVideo = shots.filter(shot =>
+      shot.videoPrompt && shot.videoPrompt.trim() !== '' && (!shot.videoUrls || shot.videoUrls.length === 0)
+    );
+
+    for (const shot of shotsWithPromptButNoVideo) {
+      console.log(`[Batch] Generating video for shot ${shot.id}`);
+      await handleGenerateVideo(shot);
+    }
+
+    console.log('[Batch] All videos generated');
+  };
+
   return (
     <>
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem' }}>
+        <button onClick={handleBatchGenerateVideoPrompts} className="primary-button">
+          Batch Generate Video Prompts (Empty Only)
+        </button>
+        <button onClick={handleBatchGenerateVideos} className="primary-button">
+          Batch Generate AI Videos (Empty Only)
+        </button>
+      </div>
       <table className="generation-table">
         <thead>
           <tr>
