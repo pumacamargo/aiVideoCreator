@@ -102,8 +102,12 @@ function App() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderedVideoUrl, setRenderedVideoUrl] = useState(null);
 
+  // State for Default Templates
+  const [defaultTemplates, setDefaultTemplates] = useState({});
+
   const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Render'];
   const websocket = useRef(null);
+  const [websocketReady, setWebsocketReady] = useState(false);
 
   const debounce = (func, delay) => {
     let timeout;
@@ -140,21 +144,80 @@ function App() {
   }, [project]);
 
   useEffect(() => {
-    if (currentView === 'mainApp' && websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+    console.log('[Template List Request]', {
+      currentView,
+      websocketReady
+    });
+    if (currentView === 'mainApp' && websocketReady) {
+      console.log('[Template List Request] Sending list_templates requests');
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'script' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'art_direction' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
       websocket.current.send(JSON.stringify({ action: 'load_reference_history' }));
     }
-  }, [currentView]);
+  }, [currentView, websocketReady]);
+
+  // Auto-load default template for script when list becomes available
+  useEffect(() => {
+    console.log('[Script Template Auto-Load]', {
+      selectedTemplateName,
+      templateListLength: templateList.length,
+      templateList,
+      defaultTemplate: defaultTemplates.script
+    });
+    if (!selectedTemplateName && templateList.length > 0) {
+      const defaultTemplate = defaultTemplates.script;
+      const templateToLoad = (defaultTemplate && templateList.includes(defaultTemplate))
+        ? defaultTemplate
+        : templateList[0]; // Already sorted
+      console.log('[Script Template Auto-Load] Loading:', templateToLoad);
+      handleLoadTemplate(templateToLoad, 'script');
+    }
+  }, [templateList]);
+
+  // Auto-load default template for art direction when list becomes available
+  useEffect(() => {
+    if (!selectedArtDirectionTemplateName && artDirectionTemplateList.length > 0) {
+      const defaultTemplate = defaultTemplates.art_direction;
+      const templateToLoad = (defaultTemplate && artDirectionTemplateList.includes(defaultTemplate))
+        ? defaultTemplate
+        : artDirectionTemplateList[0];
+      handleLoadTemplate(templateToLoad, 'art_direction');
+    }
+  }, [artDirectionTemplateList]);
+
+  // Auto-load default template for image generation when list becomes available
+  useEffect(() => {
+    if (!selectedImageGenTemplateName && imageGenTemplateList.length > 0) {
+      const defaultTemplate = defaultTemplates.image_generation;
+      const templateToLoad = (defaultTemplate && imageGenTemplateList.includes(defaultTemplate))
+        ? defaultTemplate
+        : imageGenTemplateList[0];
+      handleLoadTemplate(templateToLoad, 'image_generation');
+    }
+  }, [imageGenTemplateList]);
+
+  // Auto-load default template for video generation when list becomes available
+  useEffect(() => {
+    if (!selectedVideoGenTemplateName && videoGenTemplateList.length > 0) {
+      const defaultTemplate = defaultTemplates.video_generation;
+      const templateToLoad = (defaultTemplate && videoGenTemplateList.includes(defaultTemplate))
+        ? defaultTemplate
+        : videoGenTemplateList[0];
+      handleLoadTemplate(templateToLoad, 'video_generation');
+    }
+  }, [videoGenTemplateList]);
 
   useEffect(() => {
     websocket.current = new WebSocket('ws://localhost:3001');
     websocket.current.onopen = () => {
       console.log('WebSocket connection established');
+      setWebsocketReady(true);
       // Load reference history when WebSocket connects
       websocket.current.send(JSON.stringify({ action: 'load_reference_history' }));
+      // Load default templates
+      websocket.current.send(JSON.stringify({ action: 'get_default_templates' }));
     };
     websocket.current.onmessage = (event) => {
       const message = JSON.parse(event.data);
@@ -203,26 +266,17 @@ function App() {
           websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
         }
       } else if (message.action === 'template_list' && message.status === 'success') {
-        if (message.payload.templateType === 'script') {
-          setTemplateList(message.payload.templates);
-          if (!selectedTemplateName && message.payload.templates.length > 0) {
-            handleLoadTemplate(message.payload.templates[0], 'script');
-          }
-        } else if (message.payload.templateType === 'art_direction') {
-          setArtDirectionTemplateList(message.payload.templates);
-          if (!selectedArtDirectionTemplateName && message.payload.templates.length > 0) {
-            handleLoadTemplate(message.payload.templates[0], 'art_direction');
-          }
-        } else if (message.payload.templateType === 'image_generation') {
-          setImageGenTemplateList(message.payload.templates);
-          if (!selectedImageGenTemplateName && message.payload.templates.length > 0) {
-            handleLoadTemplate(message.payload.templates[0], 'image_generation');
-          }
-        } else if (message.payload.templateType === 'video_generation') {
-          setVideoGenTemplateList(message.payload.templates);
-          if (!selectedVideoGenTemplateName && message.payload.templates.length > 0) {
-            handleLoadTemplate(message.payload.templates[0], 'video_generation');
-          }
+        const { templateType, templates } = message.payload;
+        const sortedTemplates = [...templates].sort();
+
+        if (templateType === 'script') {
+          setTemplateList(sortedTemplates);
+        } else if (templateType === 'art_direction') {
+          setArtDirectionTemplateList(sortedTemplates);
+        } else if (templateType === 'image_generation') {
+          setImageGenTemplateList(sortedTemplates);
+        } else if (templateType === 'video_generation') {
+          setVideoGenTemplateList(sortedTemplates);
         }
       } else if (message.action === 'template_loaded' && message.status === 'success') {
         if (message.payload.templateType === 'script') {
@@ -284,13 +338,23 @@ function App() {
         setReferenceImageHistory(message.payload.history || []);
       } else if (message.action === 'reference_history_saved' && message.status === 'success') {
         setReferenceImageHistory(message.payload.history || []);
+      } else if (message.action === 'default_templates_loaded' && message.status === 'success') {
+        setDefaultTemplates(message.payload.defaults || {});
+      } else if (message.action === 'default_template_set' && message.status === 'success') {
+        setDefaultTemplates(prev => ({
+          ...prev,
+          [message.payload.templateType]: message.payload.templateName
+        }));
       } else if (message.status === 'error') {
         alert(`Error: ${message.message}`);
         setIsSaving(false);
         setUploadingReferenceImage(false);
       }
     };
-    websocket.current.onclose = () => console.log('WebSocket connection closed');
+    websocket.current.onclose = () => {
+      console.log('WebSocket connection closed');
+      setWebsocketReady(false);
+    };
     return () => {
       if (websocket.current) websocket.current.close();
     };
@@ -442,6 +506,15 @@ function App() {
   const handleLoadTemplate = (templateName, templateType) => {
     if (websocket.current) {
       websocket.current.send(JSON.stringify({ action: 'load_template', payload: { templateName, templateType } }));
+    }
+  };
+
+  const handleSetDefaultTemplate = (templateName, templateType) => {
+    if (websocket.current) {
+      websocket.current.send(JSON.stringify({
+        action: 'set_default_template',
+        payload: { templateName, templateType }
+      }));
     }
   };
 
@@ -896,17 +969,27 @@ function App() {
                       <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {templateList.length > 0 ? (
-                          <div className="button-group">
-                            {templateList.map(name => (
+                          <>
+                            <div className="button-group">
+                              {templateList.map(name => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleLoadTemplate(name, 'script')}
+                                  className={name === selectedTemplateName ? 'primary' : ''}
+                                >
+                                  {name} {defaultTemplates.script === name && '⭐'}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedTemplateName && (
                               <button
-                                key={name}
-                                onClick={() => handleLoadTemplate(name, 'script')}
-                                className={name === selectedTemplateName ? 'primary' : ''}
+                                onClick={() => handleSetDefaultTemplate(selectedTemplateName, 'script')}
+                                style={{marginTop: '10px'}}
                               >
-                                {name}
+                                Set "{selectedTemplateName}" as Default
                               </button>
-                            ))}
-                          </div>
+                            )}
+                          </>
                         ) : (
                           <p>No templates available.</p>
                         )}
@@ -1021,17 +1104,27 @@ function App() {
                       <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {artDirectionTemplateList.length > 0 ? (
-                          <div className="button-group">
-                            {artDirectionTemplateList.map(name => (
+                          <>
+                            <div className="button-group">
+                              {artDirectionTemplateList.map(name => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleLoadTemplate(name, 'art_direction')}
+                                  className={name === selectedArtDirectionTemplateName ? 'primary' : ''}
+                                >
+                                  {name} {defaultTemplates.art_direction === name && '⭐'}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedArtDirectionTemplateName && (
                               <button
-                                key={name}
-                                onClick={() => handleLoadTemplate(name, 'art_direction')}
-                                className={name === selectedArtDirectionTemplateName ? 'primary' : ''}
+                                onClick={() => handleSetDefaultTemplate(selectedArtDirectionTemplateName, 'art_direction')}
+                                style={{marginTop: '10px'}}
                               >
-                                {name}
+                                Set "{selectedArtDirectionTemplateName}" as Default
                               </button>
-                            ))}
-                          </div>
+                            )}
+                          </>
                         ) : (
                           <p>No templates available.</p>
                         )}
@@ -1177,17 +1270,27 @@ function App() {
                       <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {imageGenTemplateList.length > 0 ? (
-                          <div className="button-group">
-                            {imageGenTemplateList.map(name => (
+                          <>
+                            <div className="button-group">
+                              {imageGenTemplateList.map(name => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleLoadTemplate(name, 'image_generation')}
+                                  className={name === selectedImageGenTemplateName ? 'primary' : ''}
+                                >
+                                  {name} {defaultTemplates.image_generation === name && '⭐'}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedImageGenTemplateName && (
                               <button
-                                key={name}
-                                onClick={() => handleLoadTemplate(name, 'image_generation')}
-                                className={name === selectedImageGenTemplateName ? 'primary' : ''}
+                                onClick={() => handleSetDefaultTemplate(selectedImageGenTemplateName, 'image_generation')}
+                                style={{marginTop: '10px'}}
                               >
-                                {name}
+                                Set "{selectedImageGenTemplateName}" as Default
                               </button>
-                            ))}
-                          </div>
+                            )}
+                          </>
                         ) : (
                           <p>No templates available.</p>
                         )}
@@ -1326,17 +1429,27 @@ function App() {
                       <div className="template-list-modal">
                         <h4>Select a Template</h4>
                         {videoGenTemplateList.length > 0 ? (
-                          <div className="button-group">
-                            {videoGenTemplateList.map(name => (
+                          <>
+                            <div className="button-group">
+                              {videoGenTemplateList.map(name => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleLoadTemplate(name, 'video_generation')}
+                                  className={name === selectedVideoGenTemplateName ? 'primary' : ''}
+                                >
+                                  {name} {defaultTemplates.video_generation === name && '⭐'}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedVideoGenTemplateName && (
                               <button
-                                key={name}
-                                onClick={() => handleLoadTemplate(name, 'video_generation')}
-                                className={name === selectedVideoGenTemplateName ? 'primary' : ''}
+                                onClick={() => handleSetDefaultTemplate(selectedVideoGenTemplateName, 'video_generation')}
+                                style={{marginTop: '10px'}}
                               >
-                                {name}
+                                Set "{selectedVideoGenTemplateName}" as Default
                               </button>
-                            ))}
-                          </div>
+                            )}
+                          </>
                         ) : (
                           <p>No templates available.</p>
                         )}

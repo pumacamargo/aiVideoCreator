@@ -290,6 +290,12 @@ wss.on('connection', (ws) => {
         case 'load_reference_history':
           handleLoadReferenceHistory(ws);
           break;
+        case 'set_default_template':
+          handleSetDefaultTemplate(ws, parsedMessage.payload);
+          break;
+        case 'get_default_templates':
+          handleGetDefaultTemplates(ws);
+          break;
         default:
           ws.send(JSON.stringify({ status: 'error', message: 'Unknown action' }));
       }
@@ -452,6 +458,75 @@ function handleLoadReferenceHistory(ws) {
     } catch (parseErr) {
       console.error('Failed to parse reference history:', parseErr);
       ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse reference history.' }));
+    }
+  });
+}
+
+function handleSetDefaultTemplate(ws, payload) {
+  const { templateName, templateType } = payload;
+  if (!templateName || !templateType) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Template name and type are required.' }));
+  }
+
+  const defaultTemplatesPath = path.join(templatesDir, 'default_templates.json');
+
+  // Read existing defaults
+  let defaults = {};
+  if (fs.existsSync(defaultTemplatesPath)) {
+    try {
+      const data = fs.readFileSync(defaultTemplatesPath, 'utf8');
+      defaults = JSON.parse(data);
+    } catch (err) {
+      console.error('Failed to read default templates:', err);
+    }
+  }
+
+  // Set the default for this type
+  defaults[templateType] = templateName;
+
+  // Save updated defaults
+  fs.writeFile(defaultTemplatesPath, JSON.stringify(defaults, null, 2), 'utf8', (err) => {
+    if (err) {
+      console.error('Failed to save default template:', err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to save default template.' }));
+    }
+    console.log(`Default template for ${templateType} set to ${templateName}`);
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'default_template_set',
+      payload: { templateType, templateName }
+    }));
+  });
+}
+
+function handleGetDefaultTemplates(ws) {
+  const defaultTemplatesPath = path.join(templatesDir, 'default_templates.json');
+
+  if (!fs.existsSync(defaultTemplatesPath)) {
+    // Return empty defaults if file doesn't exist
+    return ws.send(JSON.stringify({
+      status: 'success',
+      action: 'default_templates_loaded',
+      payload: { defaults: {} }
+    }));
+  }
+
+  fs.readFile(defaultTemplatesPath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Failed to read default templates:', err);
+      return ws.send(JSON.stringify({ status: 'error', message: 'Failed to load default templates.' }));
+    }
+
+    try {
+      const defaults = JSON.parse(data);
+      ws.send(JSON.stringify({
+        status: 'success',
+        action: 'default_templates_loaded',
+        payload: { defaults }
+      }));
+    } catch (parseErr) {
+      console.error('Failed to parse default templates:', parseErr);
+      ws.send(JSON.stringify({ status: 'error', message: 'Failed to parse default templates.' }));
     }
   });
 }
