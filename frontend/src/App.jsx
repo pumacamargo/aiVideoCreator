@@ -237,23 +237,41 @@ function App() {
       } else if (message.action === 'image_saved_to_project' && message.status === 'success') {
         const { externalImageUrl, localImageUrl } = message.payload;
         const formattedLocalImageUrl = formatMediaUrl(localImageUrl);
-        const newScripts = scriptResponse.map(shot => {
-          const newImageUrls = shot.imageUrls.map(url => url === externalImageUrl ? formattedLocalImageUrl : url);
-          const newSelectedImageUrl = shot.selectedImageUrl === externalImageUrl ? formattedLocalImageUrl : shot.selectedImageUrl;
-          return { ...shot, imageUrls: newImageUrls, selectedImageUrl: newSelectedImageUrl };
+        setScriptResponse(prev => {
+          const newScripts = prev.map(shot => {
+            const newImageUrls = shot.imageUrls.map(url => url === externalImageUrl ? formattedLocalImageUrl : url);
+            const newSelectedImageUrl = shot.selectedImageUrl === externalImageUrl ? formattedLocalImageUrl : shot.selectedImageUrl;
+            return { ...shot, imageUrls: newImageUrls, selectedImageUrl: newSelectedImageUrl };
+          });
+          return newScripts;
         });
-        setScriptResponse(newScripts);
-        setProject(p => ({ ...p, shots: newScripts }));
+        setProject(p => {
+          const newScripts = p.shots.map(shot => {
+            const newImageUrls = shot.imageUrls.map(url => url === externalImageUrl ? formattedLocalImageUrl : url);
+            const newSelectedImageUrl = shot.selectedImageUrl === externalImageUrl ? formattedLocalImageUrl : shot.selectedImageUrl;
+            return { ...shot, imageUrls: newImageUrls, selectedImageUrl: newSelectedImageUrl };
+          });
+          return { ...p, shots: newScripts };
+        });
       } else if (message.action === 'video_saved_to_project' && message.status === 'success') {
         const { externalVideoUrl, localVideoUrl } = message.payload;
         const formattedLocalVideoUrl = formatMediaUrl(localVideoUrl);
-        const newScripts = scriptResponse.map(shot => {
-          const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? formattedLocalVideoUrl : url);
-          const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? formattedLocalVideoUrl : shot.selectedVideoUrl;
-          return { ...shot, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+        setScriptResponse(prev => {
+          const newScripts = prev.map(shot => {
+            const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? formattedLocalVideoUrl : url);
+            const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? formattedLocalVideoUrl : shot.selectedVideoUrl;
+            return { ...shot, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+          });
+          return newScripts;
         });
-        setScriptResponse(newScripts);
-        setProject(p => ({ ...p, shots: newScripts }));
+        setProject(p => {
+          const newScripts = p.shots.map(shot => {
+            const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? formattedLocalVideoUrl : url);
+            const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? formattedLocalVideoUrl : shot.selectedVideoUrl;
+            return { ...shot, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+          });
+          return { ...p, shots: newScripts };
+        });
       } else if (message.status === 'error') {
         alert(`Error: ${message.message}`);
         setIsSaving(false);
@@ -474,15 +492,26 @@ function App() {
   };
 
   const handleNewImageFromAI = (shotId, externalImageUrl) => {
-    const updatedScripts = scriptResponse.map(s => {
-      if (s.id === shotId) {
-        const newImageUrls = [...s.imageUrls, externalImageUrl];
-        return { ...s, imageUrls: newImageUrls, selectedImageUrl: externalImageUrl };
-      }
-      return s;
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          const newImageUrls = [...s.imageUrls, externalImageUrl];
+          return { ...s, imageUrls: newImageUrls, selectedImageUrl: externalImageUrl };
+        }
+        return s;
+      });
+      return updatedScripts;
     });
-    setScriptResponse(updatedScripts);
-    setProject(p => ({ ...p, shots: updatedScripts }));
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          const newImageUrls = [...s.imageUrls, externalImageUrl];
+          return { ...s, imageUrls: newImageUrls, selectedImageUrl: externalImageUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
 
     if (websocket.current && project) {
       websocket.current.send(JSON.stringify({
@@ -496,39 +525,76 @@ function App() {
   };
 
   const handleSetSelectedImage = (shotId, imageUrl) => {
-    const updatedScripts = scriptResponse.map(s => 
-      s.id === shotId ? { ...s, selectedImageUrl: imageUrl } : s
+    setScriptResponse(prev =>
+      prev.map(s =>
+        s.id === shotId ? { ...s, selectedImageUrl: imageUrl } : s
+      )
     );
-    setScriptResponse(updatedScripts);
-    setProject(p => ({ ...p, shots: updatedScripts }));
+    setProject(p => ({ ...p, shots: p.shots.map(s =>
+      s.id === shotId ? { ...s, selectedImageUrl: imageUrl } : s
+    )}));
   };
 
   const handleShotPromptChange = (shotId, newPrompt) => {
-    const updatedScripts = scriptResponse.map(s => 
-      s.id === shotId ? { ...s, prompt: newPrompt } : s
-    );
-    setScriptResponse(updatedScripts);
-    setProject(p => ({ ...p, shots: updatedScripts }));
+    console.log(`[handleShotPromptChange] shotId: ${shotId}, newPrompt length: ${newPrompt?.length}`);
+
+    // Use a microtask to ensure state updates don't conflict
+    queueMicrotask(() => {
+      setScriptResponse(prev => {
+        console.log(`[handleShotPromptChange] prev state:`, prev.map(s => ({ id: s.id, promptLength: s.prompt?.length })));
+        const updatedScripts = prev.map(s =>
+          s.id === shotId ? { ...s, prompt: newPrompt } : s
+        );
+        console.log(`[handleShotPromptChange] new state:`, updatedScripts.map(s => ({ id: s.id, promptLength: s.prompt?.length })));
+        return updatedScripts;
+      });
+      setProject(p => {
+        const updatedShots = p.shots.map(s =>
+          s.id === shotId ? { ...s, prompt: newPrompt } : s
+        );
+        return { ...p, shots: updatedShots };
+      });
+    });
   };
 
   const handleVideoPromptChange = (shotId, newVideoPrompt) => {
-    const updatedScripts = scriptResponse.map(s => 
-      s.id === shotId ? { ...s, videoPrompt: newVideoPrompt } : s
-    );
-    setScriptResponse(updatedScripts);
-    setProject(p => ({ ...p, shots: updatedScripts }));
+    queueMicrotask(() => {
+      setScriptResponse(prev => {
+        const updatedScripts = prev.map(s =>
+          s.id === shotId ? { ...s, videoPrompt: newVideoPrompt } : s
+        );
+        return updatedScripts;
+      });
+      setProject(p => {
+        const updatedShots = p.shots.map(s =>
+          s.id === shotId ? { ...s, videoPrompt: newVideoPrompt } : s
+        );
+        return { ...p, shots: updatedShots };
+      });
+    });
   };
 
   const handleNewVideoFromAI = (shotId, newVideoUrl) => {
-    const updatedScripts = scriptResponse.map(s => {
-      if (s.id === shotId) {
-        const newVideoUrls = [...(s.videoUrls || []), newVideoUrl];
-        return { ...s, videoUrls: newVideoUrls, selectedVideoUrl: newVideoUrl };
-      }
-      return s;
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          const newVideoUrls = [...(s.videoUrls || []), newVideoUrl];
+          return { ...s, videoUrls: newVideoUrls, selectedVideoUrl: newVideoUrl };
+        }
+        return s;
+      });
+      return updatedScripts;
     });
-    setScriptResponse(updatedScripts);
-    setProject(p => ({ ...p, shots: updatedScripts }));
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          const newVideoUrls = [...(s.videoUrls || []), newVideoUrl];
+          return { ...s, videoUrls: newVideoUrls, selectedVideoUrl: newVideoUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
 
     if (websocket.current && project) {
       websocket.current.send(JSON.stringify({
@@ -542,11 +608,14 @@ function App() {
   };
 
   const handleSetSelectedVideo = (shotId, videoUrl) => {
-    const updatedScripts = scriptResponse.map(s =>
-      s.id === shotId ? { ...s, selectedVideoUrl: videoUrl } : s
+    setScriptResponse(prev =>
+      prev.map(s =>
+        s.id === shotId ? { ...s, selectedVideoUrl: videoUrl } : s
+      )
     );
-    setScriptResponse(updatedScripts);
-    setProject(p => ({ ...p, shots: updatedScripts }));
+    setProject(p => ({ ...p, shots: p.shots.map(s =>
+      s.id === shotId ? { ...s, selectedVideoUrl: videoUrl } : s
+    )}));
   };
 
   const handleRender = async () => {

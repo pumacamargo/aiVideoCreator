@@ -4,9 +4,9 @@ import { VideoCarouselModal } from './VideoCarouselModal';
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
 export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromptGenWebhookUrl, videoGenWebhookUrl, artDirectionText, onVideoPromptChange, onNewVideoFromAI, onSetSelectedVideo }) {
-  const [loadingShotId, setLoadingShotId] = useState(null);
+  const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForVideoCarousel, setShotForVideoCarousel] = useState(null);
-  const [generatingVideoPromptShotId, setGeneratingVideoPromptShotId] = useState(null);
+  const [generatingVideoPromptShotIds, setGeneratingVideoPromptShotIds] = useState(new Set());
   const [editingVideoPromptId, setEditingVideoPromptId] = useState(null);
 
   const handleGenerateVideoPrompt = async (shot) => {
@@ -14,7 +14,7 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
       alert('Please enter a Video Prompt Generation Webhook URL.');
       return;
     }
-    setGeneratingVideoPromptShotId(shot.id);
+    setGeneratingVideoPromptShotIds(prev => new Set([...prev, shot.id]));
     try {
       const payload = {
         shotDescription: shot.script,
@@ -45,7 +45,11 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
       alert('Error generating video prompt. Check console for details.');
       console.error('Error generating video prompt:', error);
     } finally {
-      setGeneratingVideoPromptShotId(null);
+      setGeneratingVideoPromptShotIds(prev => {
+        const next = new Set(prev);
+        next.delete(shot.id);
+        return next;
+      });
     }
   };
 
@@ -58,7 +62,7 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
       alert('Please generate a video prompt first.');
       return;
     }
-    setLoadingShotId(shot.id);
+    setLoadingShotIds(prev => new Set([...prev, shot.id]));
     try {
       const payload = {
         prompt: shot.videoPrompt,
@@ -96,7 +100,11 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
       alert('Error generating video. Check console for details.');
       console.error('Error generating video:', error);
     } finally {
-      setLoadingShotId(null);
+      setLoadingShotIds(prev => {
+        const next = new Set(prev);
+        next.delete(shot.id);
+        return next;
+      });
     }
   };
 
@@ -155,18 +163,18 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
                   <button
                     className="button-full"
                     onClick={() => handleGenerateVideoPrompt(shot)}
-                    disabled={generatingVideoPromptShotId === shot.id}
+                    disabled={generatingVideoPromptShotIds.has(shot.id)}
                   >
-                    {generatingVideoPromptShotId === shot.id ? 'Generating...' : 'Generate Prompt'}
+                    {generatingVideoPromptShotIds.has(shot.id) ? 'Generating...' : 'Generate Prompt'}
                   </button>
                 </div>
                 <div className="button-container">
                   <button
                     className="button-full"
                     onClick={() => handleGenerateVideo(shot)}
-                    disabled={loadingShotId === shot.id}
+                    disabled={loadingShotIds.has(shot.id)}
                   >
-                    {loadingShotId === shot.id ? 'Generating...' : 'Generate AI Video'}
+                    {loadingShotIds.has(shot.id) ? 'Generating...' : 'Generate AI Video'}
                   </button>
                 </div>
               </td>

@@ -4,17 +4,19 @@ import { ImageCarouselModal } from './ImageCarouselModal';
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
 export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange }) {
-  const [loadingShotId, setLoadingShotId] = useState(null);
+  const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForCarousel, setShotForCarousel] = useState(null);
-  const [generatingPromptShotId, setGeneratingPromptShotId] = useState(null);
+  const [generatingPromptShotIds, setGeneratingPromptShotIds] = useState(new Set());
   const [editingPromptId, setEditingPromptId] = useState(null);
 
   const handleGeneratePrompt = async (shot) => {
+    console.log(`[handleGeneratePrompt] BUTTON CLICKED for shot ${shot.id}`);
     if (!promptGenWebhookUrl) {
       alert('Please enter a Prompt Generation Webhook URL.');
       return;
     }
-    setGeneratingPromptShotId(shot.id);
+    console.log(`[handleGeneratePrompt] Starting generation for shot ${shot.id}`);
+    setGeneratingPromptShotIds(prev => new Set([...prev, shot.id]));
     try {
       const payload = {
         script: shot.script,
@@ -22,13 +24,16 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
         artDirection: artDirectionText,
         image: imageGenUrl,
       };
+      console.log(`[handleGeneratePrompt] Sending webhook request for shot ${shot.id}`);
       const response = await fetch(promptGenWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      console.log(`[handleGeneratePrompt] Webhook response received for shot ${shot.id}, status: ${response.status}`);
       if (response.ok) {
         const responseData = await response.json();
+        console.log(`[handleGeneratePrompt] Response data:`, responseData);
         let generatedPrompt = '';
         if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
           generatedPrompt = responseData[0].output;
@@ -36,15 +41,23 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
           // Fallback if the expected structure is not found
           generatedPrompt = JSON.stringify(responseData, null, 2);
         }
+        console.log(`[ImageGenerationTable] About to call onPromptChange for shot ${shot.id}, prompt length: ${generatedPrompt?.length}`);
         onPromptChange(shot.id, generatedPrompt);
+        console.log(`[ImageGenerationTable] onPromptChange called for shot ${shot.id}`);
       } else {
+        console.log(`[handleGeneratePrompt] Webhook failed with status ${response.status}`);
         alert('Failed to generate prompt. Check console for details.');
       }
     } catch (error) {
+      console.log(`[handleGeneratePrompt] Error caught:`, error);
       alert('Error generating prompt. Check console for details.');
       console.error('Error generating prompt:', error);
     } finally {
-      setGeneratingPromptShotId(null);
+      setGeneratingPromptShotIds(prev => {
+        const next = new Set(prev);
+        next.delete(shot.id);
+        return next;
+      });
     }
   };
 
@@ -58,11 +71,11 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
       alert('Please enter an image reference URL before generating an image.');
       return;
     }
-    setLoadingShotId(shot.id);
+    setLoadingShotIds(prev => new Set([...prev, shot.id]));
     try {
-      const payload = { 
+      const payload = {
         prompt: promptText,
-        image: imageGenUrl 
+        image: imageGenUrl
       };
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -93,7 +106,11 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
     } catch (error) {
       alert('Error generating image. Check console for details.');
     } finally {
-      setLoadingShotId(null);
+      setLoadingShotIds(prev => {
+        const next = new Set(prev);
+        next.delete(shot.id);
+        return next;
+      });
     }
   };
 
@@ -152,18 +169,18 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
                   <button
                     className="button-full"
                     onClick={() => handleGeneratePrompt(shot)}
-                    disabled={generatingPromptShotId === shot.id}
+                    disabled={generatingPromptShotIds.has(shot.id)}
                   >
-                    {generatingPromptShotId === shot.id ? 'Generating...' : 'Generate Prompt'}
+                    {generatingPromptShotIds.has(shot.id) ? 'Generating...' : 'Generate Prompt'}
                   </button>
                 </div>
                 <div className="button-container">
                   <button
                     className="button-full"
                     onClick={() => handleGenerateImage(shot)}
-                    disabled={loadingShotId === shot.id}
+                    disabled={loadingShotIds.has(shot.id)}
                   >
-                    {loadingShotId === shot.id ? 'Generating...' : 'Generate AI Image'}
+                    {loadingShotIds.has(shot.id) ? 'Generating...' : 'Generate AI Image'}
                   </button>
                 </div>
               </td>
