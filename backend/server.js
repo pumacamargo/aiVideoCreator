@@ -62,15 +62,30 @@ async function downloadFile(url, filePath) {
  */
 function createImageClip(imagePath, outputPath, duration = 5) {
   return new Promise((resolve, reject) => {
-    ffmpeg(imagePath)
-      .inputOptions([`-loop 1`])
-      .videoCodec('libx264')
-      .fps(30)
-      .size('?x720')
-      .duration(duration)
+    ffmpeg()
+      .input(imagePath)
+      .inputOptions(['-loop 1', '-framerate 30'])
+      .input('anullsrc=channel_layout=stereo:sample_rate=44100')
+      .inputOptions(['-f lavfi'])
+      .outputOptions([
+        '-c:v libx264',
+        '-t ' + duration,
+        '-pix_fmt yuv420p',
+        '-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2',
+        '-r 30',
+        '-c:a aac',
+        '-shortest'
+      ])
       .output(outputPath)
-      .on('end', () => resolve())
-      .on('error', (err) => reject(err))
+      .on('start', (cmd) => console.log('FFmpeg command:', cmd))
+      .on('end', () => {
+        console.log(`Image clip created: ${outputPath}`);
+        resolve();
+      })
+      .on('error', (err) => {
+        console.error('Error creating image clip:', err);
+        reject(err);
+      })
       .run();
   });
 }
@@ -98,18 +113,36 @@ function mergeVideos(videoPaths, outputPath) {
 
     fs.writeFileSync(concatFilePath, concatContent);
 
+    console.log('Concat file content:\n', concatContent);
+
     ffmpeg()
       .input(concatFilePath)
       .inputOptions(['-f concat', '-safe 0'])
-      .videoCodec('libx264')
-      .audioCodec('aac')
+      .outputOptions([
+        '-c:v libx264',
+        '-c:a aac',
+        '-strict experimental'
+      ])
       .output(outputPath)
+      .on('start', (cmd) => console.log('Merge FFmpeg command:', cmd))
       .on('end', () => {
+        console.log('Videos merged successfully');
         // Clean up concat file
-        fs.unlinkSync(concatFilePath);
+        try {
+          fs.unlinkSync(concatFilePath);
+        } catch (e) {
+          console.error('Could not delete concat file:', e);
+        }
         resolve();
       })
-      .on('error', (err) => reject(err))
+      .on('error', (err) => {
+        console.error('Merge error:', err);
+        // Clean up concat file on error too
+        try {
+          fs.unlinkSync(concatFilePath);
+        } catch (e) {}
+        reject(err);
+      })
       .run();
   });
 }

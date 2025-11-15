@@ -40,8 +40,8 @@ const formatMediaUrl = (url) => {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
-  // It's a relative path, convert to absolute URL
-  return `${window.location.origin}/${url}`;
+  // It's a relative path, convert to absolute URL using backend server
+  return `http://localhost:3001/${url}`;
 };
 
 /**
