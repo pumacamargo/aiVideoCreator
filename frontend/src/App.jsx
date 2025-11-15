@@ -28,6 +28,27 @@ const WEBHOOK_URLS = {
   }
 };
 
+/**
+ * Convert a relative path to a proper URL
+ * - If it's already a full URL, return as is
+ * - If it's a relative path, prepend the current origin
+ */
+const formatMediaUrl = (url) => {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  // It's a relative path, convert to absolute URL
+  return `${window.location.origin}/${url}`;
+};
+
+/**
+ * Get the backend server URL dynamically based on current location
+ */
+const getBackendUrl = () => {
+  return `http://${window.location.hostname}:3001`;
+};
+
 function App() {
   const [currentView, setCurrentView] = useState('projectSelection');
   const [project, setProject] = useState(null);
@@ -141,8 +162,10 @@ function App() {
           ...message.payload,
           shots: message.payload.shots?.map(shot => ({
             ...shot,
-            imageUrls: shot.imageUrls || (shot.imageUrl ? [shot.imageUrl] : []),
-            selectedImageUrl: shot.selectedImageUrl || shot.imageUrl || ''
+            imageUrls: (shot.imageUrls || (shot.imageUrl ? [shot.imageUrl] : [])).map(formatMediaUrl),
+            selectedImageUrl: formatMediaUrl(shot.selectedImageUrl || shot.imageUrl || ''),
+            videoUrls: (shot.videoUrls || (shot.videoUrl ? [shot.videoUrl] : [])).map(formatMediaUrl),
+            selectedVideoUrl: formatMediaUrl(shot.selectedVideoUrl || shot.videoUrl || '')
           })) || [],
           artDirection: message.payload.artDirection || {},
         };
@@ -213,18 +236,20 @@ function App() {
         }
       } else if (message.action === 'image_saved_to_project' && message.status === 'success') {
         const { externalImageUrl, localImageUrl } = message.payload;
+        const formattedLocalImageUrl = formatMediaUrl(localImageUrl);
         const newScripts = scriptResponse.map(shot => {
-          const newImageUrls = shot.imageUrls.map(url => url === externalImageUrl ? localImageUrl : url);
-          const newSelectedImageUrl = shot.selectedImageUrl === externalImageUrl ? localImageUrl : shot.selectedImageUrl;
+          const newImageUrls = shot.imageUrls.map(url => url === externalImageUrl ? formattedLocalImageUrl : url);
+          const newSelectedImageUrl = shot.selectedImageUrl === externalImageUrl ? formattedLocalImageUrl : shot.selectedImageUrl;
           return { ...shot, imageUrls: newImageUrls, selectedImageUrl: newSelectedImageUrl };
         });
         setScriptResponse(newScripts);
         setProject(p => ({ ...p, shots: newScripts }));
       } else if (message.action === 'video_saved_to_project' && message.status === 'success') {
         const { externalVideoUrl, localVideoUrl } = message.payload;
+        const formattedLocalVideoUrl = formatMediaUrl(localVideoUrl);
         const newScripts = scriptResponse.map(shot => {
-          const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? localVideoUrl : url);
-          const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? localVideoUrl : shot.selectedVideoUrl;
+          const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? formattedLocalVideoUrl : url);
+          const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? formattedLocalVideoUrl : shot.selectedVideoUrl;
           return { ...shot, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
         });
         setScriptResponse(newScripts);
@@ -555,9 +580,11 @@ function App() {
 
       if (response.ok) {
         const responseData = await response.json();
-        const videoUrl = responseData?.videoUrl || responseData?.data?.videoUrl;
+        let videoUrl = responseData?.videoUrl || responseData?.data?.videoUrl;
 
         if (videoUrl) {
+          // Format the video URL if it's a relative path
+          videoUrl = formatMediaUrl(videoUrl);
           setRenderedVideoUrl(videoUrl);
           alert('Video rendered successfully!');
         } else {

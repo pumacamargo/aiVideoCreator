@@ -33,14 +33,20 @@ Before you begin, ensure you have the following installed:
     cd aiVideoCreator
     ```
 
-2.  **Install Backend Dependencies:**
+2.  **Install Root Dependencies:**
+    ```bash
+    npm install
+    ```
+    This installs `concurrently`, which allows both backend and frontend to run simultaneously.
+
+3.  **Install Backend Dependencies:**
     ```bash
     cd backend
     npm install
     cd ..
     ```
 
-3.  **Install Frontend Dependencies:**
+4.  **Install Frontend Dependencies:**
     ```bash
     cd frontend
     npm install

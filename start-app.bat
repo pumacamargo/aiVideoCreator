@@ -15,3 +15,6 @@ echo.
 
 REM This single command runs "concurrently" which starts both servers.
 npm start
+
+REM Pause to show any errors if the script fails
+pause

@@ -195,7 +195,8 @@ app.post('/render', async (req, res) => {
     });
     fs.rmSync(tmpDir, { recursive: true, force: true });
 
-    const videoUrl = `http://localhost:${port}/renders/${projectName || 'render'}/${timestamp}/${projectName || 'render'}_final.mp4`;
+    // Use relative path so it works from any server
+    const videoUrl = path.posix.join('renders', projectName || 'render', timestamp.toString(), `${projectName || 'render'}_final.mp4`);
 
     console.log(`Render completed successfully: ${videoUrl}`);
     res.json({
@@ -349,9 +350,12 @@ async function handleSaveImageToProject(ws, payload) {
     const imageBuffer = await response.buffer();
     const imageFileName = `${Date.now()}_${path.basename(new URL(externalImageUrl).pathname)}`;
     const localImagePath = path.join(projectImagesDir, imageFileName);
-    const relativeImagePath = path.join('projects', sanitizedProjectName, 'assets', 'images', imageFileName); // Path accessible from frontend
+    const relativeImagePath = path.posix.join('projects', sanitizedProjectName, 'assets', 'images', imageFileName); // Use posix path for URLs
 
     fs.writeFileSync(localImagePath, imageBuffer);
+
+    // Store relative path so it works from any server
+    const localImageUrl = relativeImagePath;
 
     ws.send(JSON.stringify({
       status: 'success',
@@ -359,7 +363,7 @@ async function handleSaveImageToProject(ws, payload) {
       payload: {
         projectName: sanitizedProjectName,
         externalImageUrl: externalImageUrl,
-        localImageUrl: `http://localhost:${port}/${relativeImagePath.replace(/\\/g, '/')}` // Ensure URL is correct for frontend
+        localImageUrl: localImageUrl
       }
     }));
     console.log(`Image saved to project '${sanitizedProjectName}': ${localImagePath}`);
@@ -390,9 +394,12 @@ async function handleSaveVideoToProject(ws, payload) {
     const videoBuffer = await response.buffer();
     const videoFileName = `${Date.now()}_${path.basename(new URL(externalVideoUrl).pathname)}`;
     const localVideoPath = path.join(projectVideosDir, videoFileName);
-    const relativeVideoPath = path.join('projects', sanitizedProjectName, 'assets', 'videos', videoFileName); // Path accessible from frontend
+    const relativeVideoPath = path.posix.join('projects', sanitizedProjectName, 'assets', 'videos', videoFileName); // Use posix path for URLs
 
     fs.writeFileSync(localVideoPath, videoBuffer);
+
+    // Store relative path so it works from any server
+    const localVideoUrl = relativeVideoPath;
 
     ws.send(JSON.stringify({
       status: 'success',
@@ -400,7 +407,7 @@ async function handleSaveVideoToProject(ws, payload) {
       payload: {
         projectName: sanitizedProjectName,
         externalVideoUrl: externalVideoUrl,
-        localVideoUrl: `http://localhost:${port}/${relativeVideoPath.replace(/\\/g, '/')}` // Ensure URL is correct for frontend
+        localVideoUrl: localVideoUrl
       }
     }));
     console.log(`Video saved to project '${sanitizedProjectName}': ${localVideoPath}`);
