@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetSelected }) {
+export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetSelected, onRemove }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -28,6 +28,24 @@ export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetS
     e.stopPropagation();
     onSetSelected(imageUrls[currentIndex]);
     onClose();
+  };
+
+  const handleRemove = (e) => {
+    e.stopPropagation();
+    if (window.confirm('Remove this image from the carousel? (File will not be deleted)')) {
+      const urlToRemove = imageUrls[currentIndex];
+      onRemove(urlToRemove);
+
+      // Close modal if this was the last image
+      if (imageUrls.length === 1) {
+        onClose();
+      } else {
+        // Adjust index if needed
+        if (currentIndex >= imageUrls.length - 1) {
+          setCurrentIndex(Math.max(0, currentIndex - 1));
+        }
+      }
+    }
   };
 
   const goToPrevious = (e) => {
@@ -82,12 +100,20 @@ export function ImageCarouselModal({ imageUrls, initialImageUrl, onClose, onSetS
           {currentIndex + 1} / {imageUrls.length}
         </div>
 
-        <button
-          className="carousel-select-button"
-          onClick={handleSetSelected}
-        >
-          Set as Selected
-        </button>
+        <div className="carousel-button-group">
+          <button
+            className="carousel-select-button"
+            onClick={handleSetSelected}
+          >
+            Set as Selected
+          </button>
+          <button
+            className="carousel-remove-button"
+            onClick={handleRemove}
+          >
+            Remove from Carousel
+          </button>
+        </div>
       </div>
     </div>
   );

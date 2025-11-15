@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetSelected }) {
+export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetSelected, onRemove }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -30,6 +30,24 @@ export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetS
       onSetSelected(videoUrls[currentIndex]);
     }
     onClose();
+  };
+
+  const handleRemove = (e) => {
+    e.stopPropagation();
+    if (window.confirm('Remove this video from the carousel? (File will not be deleted)')) {
+      const urlToRemove = videoUrls[currentIndex];
+      onRemove(urlToRemove);
+
+      // Close modal if this was the last video
+      if (videoUrls.length === 1) {
+        onClose();
+      } else {
+        // Adjust index if needed
+        if (currentIndex >= videoUrls.length - 1) {
+          setCurrentIndex(Math.max(0, currentIndex - 1));
+        }
+      }
+    }
   };
 
   const goToPrevious = (e) => {
@@ -91,12 +109,20 @@ export function VideoCarouselModal({ videoUrls, initialVideoUrl, onClose, onSetS
         </div>
 
         {onSetSelected && (
-          <button
-            className="carousel-select-button"
-            onClick={handleSetSelected}
-          >
-            Set as Selected
-          </button>
+          <div className="carousel-button-group">
+            <button
+              className="carousel-select-button"
+              onClick={handleSetSelected}
+            >
+              Set as Selected
+            </button>
+            <button
+              className="carousel-remove-button"
+              onClick={handleRemove}
+            >
+              Remove from Carousel
+            </button>
+          </div>
         )}
       </div>
     </div>

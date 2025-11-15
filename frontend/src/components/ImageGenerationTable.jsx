@@ -3,7 +3,7 @@ import { ImageCarouselModal } from './ImageCarouselModal';
 
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
-export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange }) {
+export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, onRemoveImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange }) {
   const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForCarousel, setShotForCarousel] = useState(null);
   const [generatingPromptShotIds, setGeneratingPromptShotIds] = useState(new Set());
@@ -120,6 +120,12 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
     }
   };
 
+  const handleRemoveImage = (imageUrl) => {
+    if (shotForCarousel && onRemoveImage) {
+      onRemoveImage(shotForCarousel.id, imageUrl);
+    }
+  };
+
   const handleBatchGeneratePrompts = async () => {
     const shotsWithoutPrompt = shots.filter(shot => !shot.prompt || shot.prompt.trim() === '');
 
@@ -226,6 +232,7 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
           initialImageUrl={shotForCarousel.selectedImageUrl}
           onClose={() => setShotForCarousel(null)}
           onSetSelected={handleSetSelected}
+          onRemove={handleRemoveImage}
         />
       )}
     </>

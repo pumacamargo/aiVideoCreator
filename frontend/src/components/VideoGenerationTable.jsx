@@ -3,7 +3,7 @@ import { VideoCarouselModal } from './VideoCarouselModal';
 
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
-export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromptGenWebhookUrl, videoGenWebhookUrl, artDirectionText, onVideoPromptChange, onNewVideoFromAI, onSetSelectedVideo }) {
+export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromptGenWebhookUrl, videoGenWebhookUrl, artDirectionText, onVideoPromptChange, onNewVideoFromAI, onSetSelectedVideo, onRemoveVideo }) {
   const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForVideoCarousel, setShotForVideoCarousel] = useState(null);
   const [generatingVideoPromptShotIds, setGeneratingVideoPromptShotIds] = useState(new Set());
@@ -114,6 +114,12 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
     }
   };
 
+  const handleRemoveVideo = (videoUrl) => {
+    if (shotForVideoCarousel && onRemoveVideo) {
+      onRemoveVideo(shotForVideoCarousel.id, videoUrl);
+    }
+  };
+
   const handleBatchGenerateVideoPrompts = async () => {
     const shotsWithoutVideoPrompt = shots.filter(shot => !shot.videoPrompt || shot.videoPrompt.trim() === '');
 
@@ -220,6 +226,7 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
           initialVideoUrl={shotForVideoCarousel.selectedVideoUrl}
           onClose={() => setShotForVideoCarousel(null)}
           onSetSelected={handleSetSelectedVideo}
+          onRemove={handleRemoveVideo}
         />
       )}
     </>

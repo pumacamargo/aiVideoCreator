@@ -611,6 +611,35 @@ function App() {
     )}));
   };
 
+  const handleRemoveImageFromShot = (shotId, imageUrlToRemove) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          const newImageUrls = s.imageUrls.filter(url => url !== imageUrlToRemove);
+          const newSelectedImageUrl = s.selectedImageUrl === imageUrlToRemove
+            ? (newImageUrls.length > 0 ? newImageUrls[0] : null)
+            : s.selectedImageUrl;
+          return { ...s, imageUrls: newImageUrls, selectedImageUrl: newSelectedImageUrl };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          const newImageUrls = s.imageUrls.filter(url => url !== imageUrlToRemove);
+          const newSelectedImageUrl = s.selectedImageUrl === imageUrlToRemove
+            ? (newImageUrls.length > 0 ? newImageUrls[0] : null)
+            : s.selectedImageUrl;
+          return { ...s, imageUrls: newImageUrls, selectedImageUrl: newSelectedImageUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
+  };
+
   const handleShotPromptChange = (shotId, newPrompt) => {
     console.log(`[handleShotPromptChange] shotId: ${shotId}, newPrompt length: ${newPrompt?.length}`);
 
@@ -692,6 +721,35 @@ function App() {
     setProject(p => ({ ...p, shots: p.shots.map(s =>
       s.id === shotId ? { ...s, selectedVideoUrl: videoUrl } : s
     )}));
+  };
+
+  const handleRemoveVideoFromShot = (shotId, videoUrlToRemove) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          const newVideoUrls = s.videoUrls.filter(url => url !== videoUrlToRemove);
+          const newSelectedVideoUrl = s.selectedVideoUrl === videoUrlToRemove
+            ? (newVideoUrls.length > 0 ? newVideoUrls[0] : null)
+            : s.selectedVideoUrl;
+          return { ...s, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          const newVideoUrls = s.videoUrls.filter(url => url !== videoUrlToRemove);
+          const newSelectedVideoUrl = s.selectedVideoUrl === videoUrlToRemove
+            ? (newVideoUrls.length > 0 ? newVideoUrls[0] : null)
+            : s.selectedVideoUrl;
+          return { ...s, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
   };
 
   const handleRender = async () => {
@@ -1226,6 +1284,7 @@ function App() {
                   shots={scriptResponse}
                   onNewImageFromAI={handleNewImageFromAI}
                   onSetSelectedImage={handleSetSelectedImage}
+                  onRemoveImage={handleRemoveImageFromShot}
                   artDirectionText={artDirectionResponse}
                   imageGenUrl={imageGenUrl}
                   webhookUrl={WEBHOOK_URLS[environment].imageGen}
@@ -1303,6 +1362,7 @@ function App() {
                   onVideoPromptChange={handleVideoPromptChange}
                   onNewVideoFromAI={handleNewVideoFromAI}
                   onSetSelectedVideo={handleSetSelectedVideo}
+                  onRemoveVideo={handleRemoveVideoFromShot}
                 />
               </div>
             </div>
