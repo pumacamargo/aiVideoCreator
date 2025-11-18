@@ -296,6 +296,9 @@ wss.on('connection', (ws) => {
         case 'get_default_templates':
           handleGetDefaultTemplates(ws);
           break;
+        case 'save_soundfx_to_project':
+          await handleSaveSoundFXToProject(ws, parsedMessage.payload);
+          break;
         default:
           ws.send(JSON.stringify({ status: 'error', message: 'Unknown action' }));
       }
@@ -619,6 +622,50 @@ async function handleSaveVideoToProject(ws, payload) {
   }
 }
 
+async function handleSaveSoundFXToProject(ws, payload) {
+  const { projectName, externalSoundFXUrl } = payload;
+  if (!projectName || !externalSoundFXUrl) {
+    return ws.send(JSON.stringify({ status: 'error', message: 'Project name and external SoundFX URL are required to save SoundFX.' }));
+  }
+
+  const sanitizedProjectName = projectName.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const projectSoundFXDir = path.join(projectsDir, sanitizedProjectName, 'assets', 'soundfx');
+
+  try {
+    fs.mkdirSync(projectSoundFXDir, { recursive: true });
+
+    const response = await fetch(externalSoundFXUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download SoundFX: ${response.statusText}`);
+    }
+
+    const soundFXBuffer = await response.buffer();
+    const soundFXFileName = `${Date.now()}_${path.basename(new URL(externalSoundFXUrl).pathname)}`;
+    const localSoundFXPath = path.join(projectSoundFXDir, soundFXFileName);
+    const relativeSoundFXPath = path.posix.join('projects', sanitizedProjectName, 'assets', 'soundfx', soundFXFileName); // Use posix path for URLs
+
+    fs.writeFileSync(localSoundFXPath, soundFXBuffer);
+
+    // Store relative path so it works from any server
+    const localSoundFXUrl = relativeSoundFXPath;
+
+    ws.send(JSON.stringify({
+      status: 'success',
+      action: 'soundfx_saved_to_project',
+      payload: {
+        projectName: sanitizedProjectName,
+        externalSoundFXUrl: externalSoundFXUrl,
+        localSoundFXUrl: localSoundFXUrl
+      }
+    }));
+    console.log(`SoundFX saved to project '${sanitizedProjectName}': ${localSoundFXPath}`);
+
+  } catch (error) {
+    console.error(`Failed to save SoundFX to project '${sanitizedProjectName}':`, error);
+    ws.send(JSON.stringify({ status: 'error', message: `Failed to save SoundFX to project: ${error.message}` }));
+  }
+}
+
 function handleNewProject(ws, payload) {
   const { projectName } = payload;
   if (!projectName) {
@@ -638,6 +685,8 @@ function handleNewProject(ws, payload) {
     fs.mkdirSync(projectPath, { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'assets'), { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'assets', 'images'), { recursive: true }); // Ensure images directory exists
+    fs.mkdirSync(path.join(projectPath, 'assets', 'videos'), { recursive: true }); // Ensure videos directory exists
+    fs.mkdirSync(path.join(projectPath, 'assets', 'soundfx'), { recursive: true }); // Ensure soundfx directory exists
 
     // Create initial project file
     const initialProjectData = {

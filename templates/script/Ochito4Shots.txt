@@ -1,0 +1,41 @@
+Act as a short film scriptwriter for a YouTube channel about an anthropomorphic pomeranian living human adventures in a fantastic animal world.
+
+The story must be told through a list of **4** clear, concise sentences, where each sentence describes a single action or "shot" AND explicitly names the **LOCATION** where the action takes place (e.g., in the cafe kitchen, in the main dining area, on the city street).
+
+STRICT OUTPUT FORMAT FOR AUTOMATION:
+
+1. The output MUST be **ONLY a single JSON object**. NO other text, titles, or explanations outside the JSON structure.
+2. The top-level JSON object MUST contain a single primary key: **"main_adventure_focus"**.
+3. The value for the primary key MUST be a **JSON array** containing the 4 specific shots for that section.
+4. Each individual shot object within the array MUST contain the keys **"shot_number"** (integer) and **"action_shot"** (string).
+5. The total number of shot objects MUST be exactly **4**.
+
+CONTENT (The 4 shots must develop the core adventure):
+
+* The first shot must show the pomeranian performing a **preparation task** 
+* The second action number 2
+* The third shot action number 3
+* The fourth shot action number 4
+
+JSON STRUCTURE EXAMPLE (for reference):
+
+{
+  "main_adventure_focus": [
+    {
+      "shot_number": 1,
+      "action_shot": "..."
+    },
+    {
+      "shot_number": 2,
+      "action_shot": "..."
+    },
+    {
+      "shot_number": 3,
+      "action_shot": "..."
+    },
+    {
+      "shot_number": 4,
+      "action_shot": "..."
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import { DraggableScriptCard } from './components/DraggableScriptCard';
 import { ArtDirectionCard } from './components/ArtDirectionCard';
 import { ImageGenerationTable } from './components/ImageGenerationTable';
 import { VideoGenerationTable } from './components/VideoGenerationTable';
+import { SoundFXGenerationTable } from './components/SoundFXGenerationTable';
 
 const WEBHOOK_URLS = {
   test: {
@@ -15,6 +16,8 @@ const WEBHOOK_URLS = {
     promptGen: 'https://n8n.lemonsushi.com/webhook-test/promptImageGen',
     videoPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompVideoGen',
     videoGen: 'https://n8n.lemonsushi.com/webhook-test/VideoGenFromPrompt',
+    soundFXPromptGen: 'https://n8n.lemonsushi.com/webhook-test/prompSoundFXGen',
+    soundFXGen: 'https://n8n.lemonsushi.com/webhook-test/SoundFXGenFromPrompt',
     imageUpload: 'https://n8n.lemonsushi.com/webhook-test/uploadReferenceImage',
     render: 'http://localhost:3001/render',
   },
@@ -25,6 +28,8 @@ const WEBHOOK_URLS = {
     promptGen: 'https://n8n.lemonsushi.com/webhook/promptImageGen',
     videoPromptGen: 'https://n8n.lemonsushi.com/webhook/prompVideoGen',
     videoGen: 'https://n8n.lemonsushi.com/webhook/VideoGenFromPrompt',
+    soundFXPromptGen: 'https://n8n.lemonsushi.com/webhook/prompSoundFXGen',
+    soundFXGen: 'https://n8n.lemonsushi.com/webhook/SoundFXGenFromPrompt',
     imageUpload: 'https://n8n.lemonsushi.com/webhook/uploadReferenceImage',
     render: 'http://localhost:3001/render',
   }
@@ -97,6 +102,13 @@ function App() {
   const [videoGenTemplateList, setVideoGenTemplateList] = useState([]);
   const [showVideoGenTemplateList, setShowVideoGenTemplateList] = useState(false);
 
+  // State for SoundFX Generation Templates
+  const [soundFXPromptTemplate, setSoundFXPromptTemplate] = useState('Generate sound effects based on the following script shot: {{script}}. Art direction: {{artDirection}}. Image prompt: {{imagePrompt}}. The sound should complement the visual content and enhance the overall video experience.');
+  const [showSoundFXGenTemplateEditor, setShowSoundFXGenTemplateEditor] = useState(false);
+  const [selectedSoundFXGenTemplateName, setSelectedSoundFXGenTemplateName] = useState(null);
+  const [soundFXGenTemplateList, setSoundFXGenTemplateList] = useState([]);
+  const [showSoundFXGenTemplateList, setShowSoundFXGenTemplateList] = useState(false);
+
   // State for Render Section
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
@@ -105,7 +117,7 @@ function App() {
   // State for Default Templates
   const [defaultTemplates, setDefaultTemplates] = useState({});
 
-  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'Render'];
+  const pipelineSteps = ['Script', 'Art Direction', 'Image Generation', 'Video Generation', 'SoundFX', 'Render'];
   const websocket = useRef(null);
   const [websocketReady, setWebsocketReady] = useState(false);
 
@@ -154,6 +166,7 @@ function App() {
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'art_direction' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'image_generation' } }));
       websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
+      websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'sound_fx' } }));
       websocket.current.send(JSON.stringify({ action: 'load_reference_history' }));
     }
   }, [currentView, websocketReady]);
@@ -209,6 +222,17 @@ function App() {
     }
   }, [videoGenTemplateList]);
 
+  // Auto-load default template for SoundFX generation when list becomes available
+  useEffect(() => {
+    if (!selectedSoundFXGenTemplateName && soundFXGenTemplateList.length > 0) {
+      const defaultTemplate = defaultTemplates.sound_fx;
+      const templateToLoad = (defaultTemplate && soundFXGenTemplateList.includes(defaultTemplate))
+        ? defaultTemplate
+        : soundFXGenTemplateList[0];
+      handleLoadTemplate(templateToLoad, 'sound_fx');
+    }
+  }, [soundFXGenTemplateList]);
+
   useEffect(() => {
     websocket.current = new WebSocket('ws://localhost:3001');
     websocket.current.onopen = () => {
@@ -236,7 +260,9 @@ function App() {
             imageUrls: (shot.imageUrls || (shot.imageUrl ? [shot.imageUrl] : [])).map(formatMediaUrl),
             selectedImageUrl: formatMediaUrl(shot.selectedImageUrl || shot.imageUrl || ''),
             videoUrls: (shot.videoUrls || (shot.videoUrl ? [shot.videoUrl] : [])).map(formatMediaUrl),
-            selectedVideoUrl: formatMediaUrl(shot.selectedVideoUrl || shot.videoUrl || '')
+            selectedVideoUrl: formatMediaUrl(shot.selectedVideoUrl || shot.videoUrl || ''),
+            soundFXUrls: (shot.soundFXUrls || []).map(formatMediaUrl),
+            selectedSoundFXUrl: formatMediaUrl(shot.selectedSoundFXUrl || '')
           })) || [],
           artDirection: message.payload.artDirection || {},
         };
@@ -264,6 +290,9 @@ function App() {
         } else if (message.payload.templateType === 'video_generation') {
           setSelectedVideoGenTemplateName(message.payload.templateName);
           websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'video_generation' } }));
+        } else if (message.payload.templateType === 'sound_fx') {
+          setSelectedSoundFXGenTemplateName(message.payload.templateName);
+          websocket.current.send(JSON.stringify({ action: 'list_templates', payload: { templateType: 'sound_fx' } }));
         }
       } else if (message.action === 'template_list' && message.status === 'success') {
         const { templateType, templates } = message.payload;
@@ -277,6 +306,8 @@ function App() {
           setImageGenTemplateList(sortedTemplates);
         } else if (templateType === 'video_generation') {
           setVideoGenTemplateList(sortedTemplates);
+        } else if (templateType === 'sound_fx') {
+          setSoundFXGenTemplateList(sortedTemplates);
         }
       } else if (message.action === 'template_loaded' && message.status === 'success') {
         if (message.payload.templateType === 'script') {
@@ -295,6 +326,10 @@ function App() {
           setVideoGenPromptTemplate(message.payload.templateContent);
           setSelectedVideoGenTemplateName(message.payload.templateName);
           setShowVideoGenTemplateList(false);
+        } else if (message.payload.templateType === 'sound_fx') {
+          setSoundFXPromptTemplate(message.payload.templateContent);
+          setSelectedSoundFXGenTemplateName(message.payload.templateName);
+          setShowSoundFXGenTemplateList(false);
         }
       } else if (message.action === 'image_saved_to_project' && message.status === 'success') {
         const { externalImageUrl, localImageUrl } = message.payload;
@@ -331,6 +366,25 @@ function App() {
             const newVideoUrls = shot.videoUrls.map(url => url === externalVideoUrl ? formattedLocalVideoUrl : url);
             const newSelectedVideoUrl = shot.selectedVideoUrl === externalVideoUrl ? formattedLocalVideoUrl : shot.selectedVideoUrl;
             return { ...shot, videoUrls: newVideoUrls, selectedVideoUrl: newSelectedVideoUrl };
+          });
+          return { ...p, shots: newScripts };
+        });
+      } else if (message.action === 'soundfx_saved_to_project' && message.status === 'success') {
+        const { externalSoundFXUrl, localSoundFXUrl } = message.payload;
+        const formattedLocalSoundFXUrl = formatMediaUrl(localSoundFXUrl);
+        setScriptResponse(prev => {
+          const newScripts = prev.map(shot => {
+            const newSoundFXUrls = shot.soundFXUrls.map(url => url === externalSoundFXUrl ? formattedLocalSoundFXUrl : url);
+            const newSelectedSoundFXUrl = shot.selectedSoundFXUrl === externalSoundFXUrl ? formattedLocalSoundFXUrl : shot.selectedSoundFXUrl;
+            return { ...shot, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSelectedSoundFXUrl };
+          });
+          return newScripts;
+        });
+        setProject(p => {
+          const newScripts = p.shots.map(shot => {
+            const newSoundFXUrls = shot.soundFXUrls.map(url => url === externalSoundFXUrl ? formattedLocalSoundFXUrl : url);
+            const newSelectedSoundFXUrl = shot.selectedSoundFXUrl === externalSoundFXUrl ? formattedLocalSoundFXUrl : shot.selectedSoundFXUrl;
+            return { ...shot, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSelectedSoundFXUrl };
           });
           return { ...p, shots: newScripts };
         });
@@ -476,6 +530,8 @@ function App() {
         templateContent = imageGenPromptTemplate;
       } else if (templateType === 'video_generation') {
         templateContent = videoGenPromptTemplate;
+      } else if (templateType === 'sound_fx') {
+        templateContent = soundFXPromptTemplate;
       }
       websocket.current.send(JSON.stringify({
         action: 'save_template',
@@ -500,6 +556,8 @@ function App() {
       setShowImageGenTemplateList(s => !s);
     } else if (templateType === 'video_generation') {
       setShowVideoGenTemplateList(s => !s);
+    } else if (templateType === 'sound_fx') {
+      setShowSoundFXGenTemplateList(s => !s);
     }
   };
 
@@ -825,22 +883,114 @@ function App() {
     });
   };
 
+  const handleSoundFXPromptChange = (shotId, newSoundFXPrompt) => {
+    queueMicrotask(() => {
+      setScriptResponse(prev => {
+        const updatedScripts = prev.map(s =>
+          s.id === shotId ? { ...s, soundFXPrompt: newSoundFXPrompt } : s
+        );
+        return updatedScripts;
+      });
+      setProject(p => {
+        const updatedShots = p.shots.map(s =>
+          s.id === shotId ? { ...s, soundFXPrompt: newSoundFXPrompt } : s
+        );
+        return { ...p, shots: updatedShots };
+      });
+    });
+  };
+
+  const handleNewSoundFXFromAI = (shotId, newSoundFXUrl) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          const newSoundFXUrls = [...(s.soundFXUrls || []), newSoundFXUrl];
+          return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSoundFXUrl };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          const newSoundFXUrls = [...(s.soundFXUrls || []), newSoundFXUrl];
+          return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSoundFXUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
+
+    if (websocket.current && project) {
+      websocket.current.send(JSON.stringify({
+        action: 'save_soundfx_to_project',
+        payload: {
+          projectName: project.projectName,
+          externalSoundFXUrl: newSoundFXUrl,
+        }
+      }));
+    }
+  };
+
+  const handleSetSelectedSoundFX = (shotId, soundFXUrl) => {
+    setScriptResponse(prev =>
+      prev.map(s =>
+        s.id === shotId ? { ...s, selectedSoundFXUrl: soundFXUrl } : s
+      )
+    );
+    setProject(p => ({ ...p, shots: p.shots.map(s =>
+      s.id === shotId ? { ...s, selectedSoundFXUrl: soundFXUrl } : s
+    )}));
+  };
+
+  const handleRemoveSoundFXFromShot = (shotId, soundFXUrlToRemove) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          const newSoundFXUrls = s.soundFXUrls.filter(url => url !== soundFXUrlToRemove);
+          const newSelectedSoundFXUrl = s.selectedSoundFXUrl === soundFXUrlToRemove
+            ? (newSoundFXUrls.length > 0 ? newSoundFXUrls[0] : null)
+            : s.selectedSoundFXUrl;
+          return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSelectedSoundFXUrl };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          const newSoundFXUrls = s.soundFXUrls.filter(url => url !== soundFXUrlToRemove);
+          const newSelectedSoundFXUrl = s.selectedSoundFXUrl === soundFXUrlToRemove
+            ? (newSoundFXUrls.length > 0 ? newSoundFXUrls[0] : null)
+            : s.selectedSoundFXUrl;
+          return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSelectedSoundFXUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
+  };
+
   const handleRender = async () => {
     setIsRendering(true);
     setRenderProgress(0);
 
     try {
-      // Prepare render data - filter shots that have video or image
+      // Prepare render data - filter shots that have soundFX, video or image
+      // Priority: SoundFX > Video > Image (if SoundFX exists, use it; otherwise check video; otherwise check image)
       const shotsForRender = scriptResponse
-        .filter(shot => shot.selectedVideoUrl || shot.selectedImageUrl)
+        .filter(shot => shot.selectedSoundFXUrl || shot.selectedVideoUrl || shot.selectedImageUrl)
         .map(shot => ({
           id: shot.id,
+          soundfx: shot.selectedSoundFXUrl || null,
           video: shot.selectedVideoUrl || null,
           image: shot.selectedImageUrl || null,
         }));
 
       if (shotsForRender.length === 0) {
-        alert('No videos or images selected to render. Please select at least one video or image.');
+        alert('No soundFX, videos or images selected to render. Please select at least one.');
         setIsRendering(false);
         return;
       }
@@ -1483,6 +1633,88 @@ function App() {
 
           {currentStep === 4 && (
             <div className="main-container">
+              {/* Template Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">AI Prompt Template</h3>
+                  <button onClick={() => setShowSoundFXGenTemplateEditor(!showSoundFXGenTemplateEditor)}>
+                    {showSoundFXGenTemplateEditor ? 'Hide Template' : 'Choose Template'}
+                  </button>
+                </div>
+
+                {selectedSoundFXGenTemplateName && <p className="template-info">Selected: {selectedSoundFXGenTemplateName}</p>}
+                {!selectedSoundFXGenTemplateName && soundFXGenTemplateList.length === 0 && <p className="template-info">No template selected</p>}
+
+                {showSoundFXGenTemplateEditor && (
+                  <div className="template-editor-container">
+                    <textarea
+                      value={soundFXPromptTemplate}
+                      onChange={(e) => setSoundFXPromptTemplate(e.target.value)}
+                      rows="6"
+                      style={{width: '100%', marginBottom: '10px'}}
+                    />
+                    <div className="button-group">
+                      <button onClick={() => handleSaveTemplate('sound_fx')}>Save Template</button>
+                      <button onClick={() => handleOpenTemplate('sound_fx')}>Open Template</button>
+                    </div>
+                    {showSoundFXGenTemplateList && (
+                      <div className="template-list-modal">
+                        <h4>Select a Template</h4>
+                        {soundFXGenTemplateList.length > 0 ? (
+                          <>
+                            <div className="button-group">
+                              {soundFXGenTemplateList.map(name => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleLoadTemplate(name, 'sound_fx')}
+                                  className={name === selectedSoundFXGenTemplateName ? 'primary' : ''}
+                                >
+                                  {name} {defaultTemplates.sound_fx === name && '⭐'}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedSoundFXGenTemplateName && (
+                              <button
+                                onClick={() => handleSetDefaultTemplate(selectedSoundFXGenTemplateName, 'sound_fx')}
+                                style={{marginTop: '10px'}}
+                              >
+                                Set "{selectedSoundFXGenTemplateName}" as Default
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <p>No templates available.</p>
+                        )}
+                        <button onClick={() => setShowSoundFXGenTemplateList(false)}>Close</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Generation Table Section */}
+              <div className="section-card">
+                <div className="section-header">
+                  <h3 className="section-title">Generate SoundFX</h3>
+                </div>
+
+                <SoundFXGenerationTable
+                  shots={scriptResponse}
+                  soundFXPromptTemplate={soundFXPromptTemplate}
+                  soundFXPromptGenWebhookUrl={WEBHOOK_URLS[environment].soundFXPromptGen}
+                  soundFXGenWebhookUrl={WEBHOOK_URLS[environment].soundFXGen}
+                  artDirectionText={artDirectionResponse}
+                  onSoundFXPromptChange={handleSoundFXPromptChange}
+                  onNewSoundFXFromAI={handleNewSoundFXFromAI}
+                  onSetSelectedSoundFX={handleSetSelectedSoundFX}
+                  onRemoveSoundFX={handleRemoveSoundFXFromShot}
+                />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 5 && (
+            <div className="main-container">
               {/* Render Summary Section */}
               <div className="section-card">
                 <div className="section-header">
@@ -1491,54 +1723,67 @@ function App() {
 
                 <div className="section-content">
                   <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
-                    Review your shots below. The final video will combine all selected videos and images in order.
-                    Images will be displayed for 5 seconds each.
+                    Review your shots below. The final video will combine all selected assets in order.
+                    Priority: SoundFX &gt; Video &gt; Image. Images will be displayed for 5 seconds each.
                   </p>
 
                   {/* Shots Summary */}
                   <div style={{ marginBottom: 'var(--spacing-xl)' }}>
                     <h4 style={{ color: 'var(--color-text-primary)', marginBottom: 'var(--spacing-md)' }}>Shots Summary</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                      {scriptResponse.map((shot, index) => (
-                        <div
-                          key={shot.id}
-                          style={{
-                            padding: 'var(--spacing-md)',
-                            background: 'rgba(45, 53, 72, 0.4)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 'var(--radius-md)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                            <span style={{ fontWeight: 'bold', color: 'var(--color-primary)', minWidth: '30px' }}>
-                              #{index + 1}
-                            </span>
-                            <span style={{ flex: 1, color: 'var(--color-text-secondary)' }}>
-                              {shot.script}
-                            </span>
-                            <span
-                              style={{
-                                padding: '4px 12px',
-                                borderRadius: 'var(--radius-md)',
-                                fontSize: 'var(--font-size-xs)',
-                                fontWeight: 'bold',
-                                background: shot.selectedVideoUrl
-                                  ? 'rgba(74, 222, 128, 0.3)'
-                                  : shot.selectedImageUrl
-                                  ? 'rgba(251, 191, 36, 0.3)'
-                                  : 'rgba(239, 68, 68, 0.3)',
-                                color: shot.selectedVideoUrl
-                                  ? 'var(--color-success)'
-                                  : shot.selectedImageUrl
-                                  ? 'var(--color-warning)'
-                                  : 'var(--color-error)',
-                              }}
-                            >
-                              {shot.selectedVideoUrl ? 'VIDEO' : shot.selectedImageUrl ? 'IMAGE (5s)' : 'SKIPPED'}
-                            </span>
+                      {scriptResponse.map((shot, index) => {
+                        // Determine what will be used: SoundFX > Video > Image
+                        let statusLabel = 'SKIPPED';
+                        let statusColor = 'rgba(239, 68, 68, 0.3)'; // red
+                        let statusTextColor = 'var(--color-error)';
+
+                        if (shot.selectedSoundFXUrl) {
+                          statusLabel = 'SOUNDFX';
+                          statusColor = 'rgba(168, 85, 247, 0.3)'; // purple
+                          statusTextColor = 'var(--color-primary)';
+                        } else if (shot.selectedVideoUrl) {
+                          statusLabel = 'VIDEO';
+                          statusColor = 'rgba(74, 222, 128, 0.3)'; // green
+                          statusTextColor = 'var(--color-success)';
+                        } else if (shot.selectedImageUrl) {
+                          statusLabel = 'IMAGE (5s)';
+                          statusColor = 'rgba(251, 191, 36, 0.3)'; // yellow
+                          statusTextColor = 'var(--color-warning)';
+                        }
+
+                        return (
+                          <div
+                            key={shot.id}
+                            style={{
+                              padding: 'var(--spacing-md)',
+                              background: 'rgba(45, 53, 72, 0.4)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: 'var(--radius-md)',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--color-primary)', minWidth: '30px' }}>
+                                #{index + 1}
+                              </span>
+                              <span style={{ flex: 1, color: 'var(--color-text-secondary)' }}>
+                                {shot.script}
+                              </span>
+                              <span
+                                style={{
+                                  padding: '4px 12px',
+                                  borderRadius: 'var(--radius-md)',
+                                  fontSize: 'var(--font-size-xs)',
+                                  fontWeight: 'bold',
+                                  background: statusColor,
+                                  color: statusTextColor,
+                                }}
+                              >
+                                {statusLabel}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 

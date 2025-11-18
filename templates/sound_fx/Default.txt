@@ -1,0 +1,1 @@
+Generate sound effects based on the following script shot: {{script}}. Art direction: {{artDirection}}. Image prompt: {{imagePrompt}}. The sound should complement the visual content and enhance the overall video experience.

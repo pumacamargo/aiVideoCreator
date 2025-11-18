@@ -1,0 +1,3 @@
+Based on the shot provided below, write a audio prompt that exclusively describes the sound consider location sounds, action sounds and any other sound except music. make sure to specify in the prompt to not add music. 
+
+MOST IMPORTANT, make sure your output is only the prompt and nothing extra, make it ready to use in a n8n node
