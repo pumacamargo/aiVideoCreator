@@ -176,7 +176,29 @@ app.post('/render', async (req, res) => {
       shotIndex++;
       const tmpVideoPath = path.join(tmpDir, `shot_${shotIndex}.mp4`);
 
-      if (shot.video) {
+      // Priority: SoundFX (video+audio) > Video > Image
+      if (shot.soundfx) {
+        // Download and use soundFX (which is already video+audio)
+        console.log(`Shot ${shotIndex}: Downloading SoundFX (video+audio) from ${shot.soundfx}`);
+        const tmpSoundFXFile = path.join(tmpDir, `soundfx_${shotIndex}_tmp.mp4`);
+        await downloadFile(shot.soundfx, tmpSoundFXFile);
+
+        // Copy soundFX video with correct codec (preserving audio)
+        await new Promise((resolve, reject) => {
+          ffmpeg(tmpSoundFXFile)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .output(tmpVideoPath)
+            .on('end', () => {
+              fs.unlinkSync(tmpSoundFXFile);
+              resolve();
+            })
+            .on('error', reject)
+            .run();
+        });
+
+        videoPaths.push(tmpVideoPath);
+      } else if (shot.video) {
         // Download and use video
         console.log(`Shot ${shotIndex}: Downloading video from ${shot.video}`);
         const tmpVideoFile = path.join(tmpDir, `video_${shotIndex}_tmp.mp4`);
@@ -208,8 +230,8 @@ app.post('/render', async (req, res) => {
 
         videoPaths.push(tmpVideoPath);
       } else {
-        // Skip shot with no video or image
-        console.log(`Shot ${shotIndex}: Skipped (no video or image)`);
+        // Skip shot with no soundfx, video or image
+        console.log(`Shot ${shotIndex}: Skipped (no soundfx, video or image)`);
       }
     }
 
