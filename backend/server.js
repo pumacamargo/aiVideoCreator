@@ -161,7 +161,10 @@ app.post('/render', async (req, res) => {
     console.log(`Starting render for project: ${projectName}`);
 
     const timestamp = Date.now();
-    const projectRenderDir = path.join(rendersDir, projectName || 'render', timestamp.toString());
+    // Store renders inside the project folder: projects/[projectName]/assets/renders/
+    const projectDir = path.join(projectsDir, projectName || 'render');
+    const projectAssetsDir = path.join(projectDir, 'assets');
+    const projectRenderDir = path.join(projectAssetsDir, 'renders', timestamp.toString());
     const tmpDir = path.join(projectRenderDir, 'tmp');
 
     // Create directories
@@ -250,8 +253,8 @@ app.post('/render', async (req, res) => {
     });
     fs.rmSync(tmpDir, { recursive: true, force: true });
 
-    // Use relative path so it works from any server
-    const videoUrl = path.posix.join('renders', projectName || 'render', timestamp.toString(), `${projectName || 'render'}_final.mp4`);
+    // Use relative path inside the project assets folder
+    const videoUrl = path.posix.join('projects', projectName || 'render', 'assets', 'renders', timestamp.toString(), `${projectName || 'render'}_final.mp4`);
 
     console.log(`Render completed successfully: ${videoUrl}`);
     res.json({
