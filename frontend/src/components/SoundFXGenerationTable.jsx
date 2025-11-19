@@ -78,7 +78,19 @@ export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPr
       if (response.ok) {
         const responseData = await response.json();
         let generatedSoundFXUrl = null;
-        if (responseData?.[0]?.data?.resultJson) {
+        let generatedVideoUrl = null;
+
+        // Handle Replicate API response format
+        if (Array.isArray(responseData) && responseData.length > 0) {
+          const firstResponse = responseData[0];
+          if (firstResponse.output) {
+            generatedSoundFXUrl = firstResponse.output;
+          }
+          if (firstResponse.input?.video) {
+            generatedVideoUrl = firstResponse.input.video;
+          }
+        } else if (responseData?.[0]?.data?.resultJson) {
+          // Handle legacy n8n format
           try {
             const resultJson = JSON.parse(responseData[0].data.resultJson);
             if (resultJson?.resultUrls?.[0]) {
@@ -90,7 +102,7 @@ export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPr
         }
 
         if (generatedSoundFXUrl && onNewSoundFXFromAI) {
-          onNewSoundFXFromAI(shot.id, generatedSoundFXUrl);
+          onNewSoundFXFromAI(shot.id, generatedSoundFXUrl, generatedVideoUrl);
         } else {
           alert("Failed to get generated SoundFX from AI. Check console for details.");
           console.log("Unexpected response structure:", responseData);
