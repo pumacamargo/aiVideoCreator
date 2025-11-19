@@ -900,18 +900,12 @@ function App() {
     });
   };
 
-  const handleNewSoundFXFromAI = (shotId, newSoundFXUrl, newVideoUrl) => {
+  const handleNewSoundFXFromAI = (shotId, newSoundFXUrl) => {
     setScriptResponse(prev => {
       const updatedScripts = prev.map(s => {
         if (s.id === shotId) {
           const newSoundFXUrls = [...(s.soundFXUrls || []), newSoundFXUrl];
-          // If video URL is provided from SoundFX generation, add it to video URLs as well
-          let updatedShot = { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSoundFXUrl };
-          if (newVideoUrl) {
-            const newVideoUrls = [...(s.videoUrls || []), newVideoUrl];
-            updatedShot = { ...updatedShot, videoUrls: newVideoUrls, selectedVideoUrl: newVideoUrl };
-          }
-          return updatedShot;
+          return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSoundFXUrl };
         }
         return s;
       });
@@ -921,13 +915,7 @@ function App() {
       const updatedScripts = p.shots.map(s => {
         if (s.id === shotId) {
           const newSoundFXUrls = [...(s.soundFXUrls || []), newSoundFXUrl];
-          // If video URL is provided from SoundFX generation, add it to video URLs as well
-          let updatedShot = { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSoundFXUrl };
-          if (newVideoUrl) {
-            const newVideoUrls = [...(s.videoUrls || []), newVideoUrl];
-            updatedShot = { ...updatedShot, videoUrls: newVideoUrls, selectedVideoUrl: newVideoUrl };
-          }
-          return updatedShot;
+          return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSoundFXUrl };
         }
         return s;
       });
@@ -935,17 +923,12 @@ function App() {
     });
 
     if (websocket.current && project) {
-      const payload = {
-        projectName: project.projectName,
-        externalSoundFXUrl: newSoundFXUrl,
-      };
-      // If video URL is provided, also save it
-      if (newVideoUrl) {
-        payload.externalVideoUrl = newVideoUrl;
-      }
       websocket.current.send(JSON.stringify({
         action: 'save_soundfx_to_project',
-        payload
+        payload: {
+          projectName: project.projectName,
+          externalSoundFXUrl: newSoundFXUrl,
+        }
       }));
     }
   };
