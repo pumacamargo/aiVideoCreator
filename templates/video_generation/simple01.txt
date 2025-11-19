@@ -1,1 +1,3 @@
-Based on the shot provided below, write a video prompt that exclusively describes the character's action and movement. Do not include any visual descriptions of their appearance, clothing, or setting.
+Based on the shot provided below, write a video prompt that exclusively describes the character's action and movement. Do not include any visual descriptions of their appearance, clothing, or setting. 
+
+MOST IMPORTANT, make sure your output is only the prompt and nothing extra, make it ready to use in a n8n node

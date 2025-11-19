@@ -68,6 +68,7 @@ export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPr
       const payload = {
         prompt: shot.soundFXPrompt,
         thumbnail: shot.selectedImageUrl,
+        video: shot.selectedVideoUrl, // Video URL from AI-generated video
       };
       const response = await fetch(soundFXGenWebhookUrl, {
         method: 'POST',

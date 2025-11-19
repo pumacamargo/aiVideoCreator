@@ -1,4 +1,5 @@
 {
   "image_generation": "OchitoDetailed",
-  "sound_fx": "simpleSound01"
+  "sound_fx": "simpleSound01",
+  "video_generation": "simple01"
 }
