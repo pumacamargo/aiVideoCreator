@@ -179,7 +179,15 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
                 </div>
               </td>
               <td className="cell-split">
-                <div className="cell-top">{shot.script}</div>
+                <div className="cell-top">
+                  {shot.script}
+                  <button
+                    className="button-small"
+                    onClick={() => onCleanVideos(shot.id)}
+                  >
+                    Clean
+                  </button>
+                </div>
                 <div className="cell-bottom">
                   <textarea
                     className="prompt-textarea"
@@ -198,12 +206,6 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
               </td>
               <td className="cell-split">
                 <div className="button-container">
-                  <button
-                    className="button-small"
-                    onClick={() => onCleanVideos(shot.id)}
-                  >
-                    Clean
-                  </button>
                   <button
                     className="button-full"
                     onClick={() => handleGenerateVideoPrompt(shot)}

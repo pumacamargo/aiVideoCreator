@@ -190,7 +190,15 @@ export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPr
                 </div>
               </td>
               <td className="cell-split">
-                <div className="cell-top">{shot.script}</div>
+                <div className="cell-top">
+                  {shot.script}
+                  <button
+                    className="button-small"
+                    onClick={() => onCleanSoundFX(shot.id)}
+                  >
+                    Clean
+                  </button>
+                </div>
                 <div className="cell-bottom">
                   <textarea
                     className="prompt-textarea"
@@ -209,12 +217,6 @@ export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPr
               </td>
               <td className="cell-split">
                 <div className="button-container">
-                  <button
-                    className="button-small"
-                    onClick={() => onCleanSoundFX(shot.id)}
-                  >
-                    Clean
-                  </button>
                   <button
                     className="button-full"
                     onClick={() => handleGenerateSoundFXPrompt(shot)}

@@ -185,7 +185,15 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
                 </div>
               </td>
               <td className="cell-split">
-                <div className="cell-top">{shot.script}</div>
+                <div className="cell-top">
+                  {shot.script}
+                  <button
+                    className="button-small"
+                    onClick={() => onCleanImages(shot.id)}
+                  >
+                    Clean
+                  </button>
+                </div>
                 <div className="cell-bottom">
                   <textarea
                     className="prompt-textarea"
@@ -204,12 +212,6 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
               </td>
               <td className="cell-split">
                 <div className="button-container">
-                  <button
-                    className="button-small"
-                    onClick={() => onCleanImages(shot.id)}
-                  >
-                    Clean
-                  </button>
                   <button
                     className="button-full"
                     onClick={() => handleGeneratePrompt(shot)}
