@@ -1032,7 +1032,7 @@ tbody td {
 }
 
 .generation-table tbody tr {
-  border-bottom: 2px solid var(--color-border);
+  border-bottom: 3px solid var(--color-border);
   transition: all var(--transition-fast);
 }
 
@@ -1101,7 +1101,7 @@ tbody td {
 
 .generation-table .cell-top {
   height: 72px;
-  border-bottom: 2px dashed var(--color-border);
+  border-bottom: 1px solid var(--color-border);
   padding: var(--spacing-sm);
   overflow-y: auto;
   display: flex;
