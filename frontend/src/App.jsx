@@ -775,7 +775,7 @@ function App() {
     setScriptResponse(prev => {
       const updatedScripts = prev.map(s => {
         if (s.id === shotId) {
-          return { ...s, imageUrls: [], selectedImageUrl: null };
+          return { ...s, imageUrls: [], selectedImageUrl: null, prompt: '' };
         }
         return s;
       });
@@ -784,7 +784,7 @@ function App() {
     setProject(p => {
       const updatedScripts = p.shots.map(s => {
         if (s.id === shotId) {
-          return { ...s, imageUrls: [], selectedImageUrl: null };
+          return { ...s, imageUrls: [], selectedImageUrl: null, prompt: '' };
         }
         return s;
       });
@@ -908,7 +908,7 @@ function App() {
     setScriptResponse(prev => {
       const updatedScripts = prev.map(s => {
         if (s.id === shotId) {
-          return { ...s, videoUrls: [], selectedVideoUrl: null };
+          return { ...s, videoUrls: [], selectedVideoUrl: null, videoPrompt: '' };
         }
         return s;
       });
@@ -917,7 +917,7 @@ function App() {
     setProject(p => {
       const updatedScripts = p.shots.map(s => {
         if (s.id === shotId) {
-          return { ...s, videoUrls: [], selectedVideoUrl: null };
+          return { ...s, videoUrls: [], selectedVideoUrl: null, videoPrompt: '' };
         }
         return s;
       });
@@ -1019,7 +1019,7 @@ function App() {
     setScriptResponse(prev => {
       const updatedScripts = prev.map(s => {
         if (s.id === shotId) {
-          return { ...s, soundFXUrls: [], selectedSoundFXUrl: null };
+          return { ...s, soundFXUrls: [], selectedSoundFXUrl: null, soundFXPrompt: '' };
         }
         return s;
       });
@@ -1028,7 +1028,7 @@ function App() {
     setProject(p => {
       const updatedScripts = p.shots.map(s => {
         if (s.id === shotId) {
-          return { ...s, soundFXUrls: [], selectedSoundFXUrl: null };
+          return { ...s, soundFXUrls: [], selectedSoundFXUrl: null, soundFXPrompt: '' };
         }
         return s;
       });
