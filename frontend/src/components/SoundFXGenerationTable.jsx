@@ -3,7 +3,7 @@ import { VideoCarouselModal } from './VideoCarouselModal';
 
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
-export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPromptGenWebhookUrl, soundFXGenWebhookUrl, artDirectionText, onSoundFXPromptChange, onNewSoundFXFromAI, onSetSelectedSoundFX, onRemoveSoundFX }) {
+export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPromptGenWebhookUrl, soundFXGenWebhookUrl, artDirectionText, onSoundFXPromptChange, onNewSoundFXFromAI, onSetSelectedSoundFX, onRemoveSoundFX, onCleanSoundFX }) {
   const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForSoundFXCarousel, setShotForSoundFXCarousel] = useState(null);
   const [generatingSoundFXPromptShotIds, setGeneratingSoundFXPromptShotIds] = useState(new Set());
@@ -209,6 +209,12 @@ export function SoundFXGenerationTable({ shots, soundFXPromptTemplate, soundFXPr
               </td>
               <td className="cell-split">
                 <div className="button-container">
+                  <button
+                    className="button-small"
+                    onClick={() => onCleanSoundFX(shot.id)}
+                  >
+                    Clean
+                  </button>
                   <button
                     className="button-full"
                     onClick={() => handleGenerateSoundFXPrompt(shot)}

@@ -3,7 +3,7 @@ import { ImageCarouselModal } from './ImageCarouselModal';
 
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
-export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, onRemoveImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange }) {
+export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedImage, onRemoveImage, artDirectionText, imageGenUrl, webhookUrl, imageGenPromptTemplate, promptGenWebhookUrl, onPromptChange, onCleanImages }) {
   const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForCarousel, setShotForCarousel] = useState(null);
   const [generatingPromptShotIds, setGeneratingPromptShotIds] = useState(new Set());
@@ -204,6 +204,12 @@ export function ImageGenerationTable({ shots, onNewImageFromAI, onSetSelectedIma
               </td>
               <td className="cell-split">
                 <div className="button-container">
+                  <button
+                    className="button-small"
+                    onClick={() => onCleanImages(shot.id)}
+                  >
+                    Clean
+                  </button>
                   <button
                     className="button-full"
                     onClick={() => handleGeneratePrompt(shot)}

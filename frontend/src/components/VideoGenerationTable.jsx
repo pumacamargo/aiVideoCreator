@@ -3,7 +3,7 @@ import { VideoCarouselModal } from './VideoCarouselModal';
 
 const placeholderImage = 'https://wpmedia-lj.s3.amazonaws.com/wp-content/uploads/2023/10/Placeholder_01.jpg';
 
-export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromptGenWebhookUrl, videoGenWebhookUrl, artDirectionText, onVideoPromptChange, onNewVideoFromAI, onSetSelectedVideo, onRemoveVideo }) {
+export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromptGenWebhookUrl, videoGenWebhookUrl, artDirectionText, onVideoPromptChange, onNewVideoFromAI, onSetSelectedVideo, onRemoveVideo, onCleanVideos }) {
   const [loadingShotIds, setLoadingShotIds] = useState(new Set());
   const [shotForVideoCarousel, setShotForVideoCarousel] = useState(null);
   const [generatingVideoPromptShotIds, setGeneratingVideoPromptShotIds] = useState(new Set());
@@ -198,6 +198,12 @@ export function VideoGenerationTable({ shots, videoGenPromptTemplate, videoPromp
               </td>
               <td className="cell-split">
                 <div className="button-container">
+                  <button
+                    className="button-small"
+                    onClick={() => onCleanVideos(shot.id)}
+                  >
+                    Clean
+                  </button>
                   <button
                     className="button-full"
                     onClick={() => handleGenerateVideoPrompt(shot)}

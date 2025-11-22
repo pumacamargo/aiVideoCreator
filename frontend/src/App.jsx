@@ -771,6 +771,27 @@ function App() {
     });
   };
 
+  const handleCleanImages = (shotId) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          return { ...s, imageUrls: [], selectedImageUrl: null };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          return { ...s, imageUrls: [], selectedImageUrl: null };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
+  };
+
   const handleShotPromptChange = (shotId, newPrompt) => {
     console.log(`[handleShotPromptChange] shotId: ${shotId}, newPrompt length: ${newPrompt?.length}`);
 
@@ -883,6 +904,27 @@ function App() {
     });
   };
 
+  const handleCleanVideos = (shotId) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          return { ...s, videoUrls: [], selectedVideoUrl: null };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          return { ...s, videoUrls: [], selectedVideoUrl: null };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
+  };
+
   const handleSoundFXPromptChange = (shotId, newSoundFXPrompt) => {
     queueMicrotask(() => {
       setScriptResponse(prev => {
@@ -966,6 +1008,27 @@ function App() {
             ? (newSoundFXUrls.length > 0 ? newSoundFXUrls[0] : null)
             : s.selectedSoundFXUrl;
           return { ...s, soundFXUrls: newSoundFXUrls, selectedSoundFXUrl: newSelectedSoundFXUrl };
+        }
+        return s;
+      });
+      return { ...p, shots: updatedScripts };
+    });
+  };
+
+  const handleCleanSoundFX = (shotId) => {
+    setScriptResponse(prev => {
+      const updatedScripts = prev.map(s => {
+        if (s.id === shotId) {
+          return { ...s, soundFXUrls: [], selectedSoundFXUrl: null };
+        }
+        return s;
+      });
+      return updatedScripts;
+    });
+    setProject(p => {
+      const updatedScripts = p.shots.map(s => {
+        if (s.id === shotId) {
+          return { ...s, soundFXUrls: [], selectedSoundFXUrl: null };
         }
         return s;
       });
@@ -1538,6 +1601,7 @@ function App() {
                   onNewImageFromAI={handleNewImageFromAI}
                   onSetSelectedImage={handleSetSelectedImage}
                   onRemoveImage={handleRemoveImageFromShot}
+                  onCleanImages={handleCleanImages}
                   artDirectionText={artDirectionResponse}
                   imageGenUrl={imageGenUrl}
                   webhookUrl={WEBHOOK_URLS[environment].imageGen}
@@ -1626,6 +1690,7 @@ function App() {
                   onNewVideoFromAI={handleNewVideoFromAI}
                   onSetSelectedVideo={handleSetSelectedVideo}
                   onRemoveVideo={handleRemoveVideoFromShot}
+                  onCleanVideos={handleCleanVideos}
                 />
               </div>
             </div>
@@ -1708,6 +1773,7 @@ function App() {
                   onNewSoundFXFromAI={handleNewSoundFXFromAI}
                   onSetSelectedSoundFX={handleSetSelectedSoundFX}
                   onRemoveSoundFX={handleRemoveSoundFXFromShot}
+                  onCleanSoundFX={handleCleanSoundFX}
                 />
               </div>
             </div>
